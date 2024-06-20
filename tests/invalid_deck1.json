@@ -1,0 +1,11 @@
+{
+    "name": "Invalid Test 1",
+    "face_count": 2,
+    "cards": [
+        [
+            "Front",
+            "Back"
+        ],
+        ["Front, no back"]
+    ]
+}

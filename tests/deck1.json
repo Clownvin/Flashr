@@ -1,0 +1,27 @@
+{
+    "name": "Kanji Words",
+    "face_count": 3,
+    "faces": ["Kanji", "Hiragana", "English"],
+    "cards": [
+        [
+            "日本",
+            "にほん",
+            "Japan"
+        ],
+        [
+            "海賊",
+            "かいぞく",
+            "Pirate"
+        ],
+        [
+            "野菜",
+            "やさい",
+            "Vegetables, but with some extra long text to test paragraph wrapping at the extremes. This isn't even that extreme, though."
+        ],
+        [
+            "英語",
+            "えいご",
+            "English"
+        ]
+    ]
+}

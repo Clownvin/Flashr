@@ -1,0 +1,12 @@
+{
+    "name": "Basic Kanji",
+    "face_count": 3,
+    "faces": ["Kanji", "Hiragana", "English"],
+    "cards": [
+        [
+            "本",
+            "ほん",
+            "Book"
+        ]
+    ]
+}
