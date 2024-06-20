@@ -1,7 +1,13 @@
 # TODOs
 - [ ] Do not show answers which are same (eg same kana for a kanji)
+- [ ] Deck "faces", to describe which face is which (to support hiragana only + kanji decks together)
 - [ ] Ability to close
 - [ ] Refresh on resize
+- [ ] Show stats at end (%/# correct/incorrect, etc)
+- [ ] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
+    - MVP mode should be called "match"
+- [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
+- [ ] Additional mode: "mixed" - Random mix of all modes
 - [ ] Repeat missed problems at end
 - [ ] Track missed problems, and retry them (like duolingo, stretch goal)
 - [x] Show all face information at end (maybe only if missed)?
