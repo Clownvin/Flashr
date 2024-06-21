@@ -162,8 +162,8 @@ fn show_test(
     })
     .map_err(UiError::IoError)?;
 
-    let answer = get_answer()?;
-    let correct = answer_indices[answer] == test.index;
+    let answered = get_answer()?;
+    let correct = answer_indices[answered] == test.index;
 
     term.draw(|frame| {
         let layout = Layout::new(
@@ -203,7 +203,7 @@ fn show_test(
 
         answer_indices.iter().enumerate().for_each(|(i, index)| {
             let is_answer = *index == test.index;
-            let is_answered = i == answer;
+            let is_answered = i == answered;
 
             let color = if is_answer {
                 Color::Green
