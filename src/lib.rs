@@ -6,7 +6,7 @@ use deck::{load_decks, Card, Deck, DeckError};
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Style},
+    style::{Color, Stylize},
     widgets::{Block, BorderType, Gauge, Paragraph, Wrap},
 };
 use terminal::TerminalWrapper;
@@ -193,11 +193,7 @@ fn show_test(
             Paragraph::new(question)
                 .wrap(Wrap { trim: false })
                 .alignment(Alignment::Center)
-                .block(
-                    Block::bordered()
-                        .border_type(BorderType::Double)
-                        .style(Style::default().fg(color)),
-                ),
+                .block(Block::bordered().border_type(BorderType::Double).fg(color)),
             question_area,
         );
 
@@ -218,7 +214,7 @@ fn show_test(
                     .wrap(Wrap { trim: false })
                     .alignment(Alignment::Center)
                     .block(Block::bordered().border_type(BorderType::Double))
-                    .style(Style::default().fg(color)),
+                    .fg(color),
                 answer_areas[i],
             )
         });
