@@ -86,10 +86,10 @@ pub fn flash_cards(term: &mut TerminalWrapper, decks: Vec<Deck>) -> Result<(), F
                 i as f64 / total_tests,
             )?;
 
+            total_completed += 1;
             if correct {
                 total_correct += 1;
             }
-            total_completed += 1;
 
             Ok::<_, FlashrError>(())
         })?;
