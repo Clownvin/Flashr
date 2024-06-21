@@ -204,6 +204,7 @@ fn show_test(
         answer_indices.iter().enumerate().for_each(|(i, index)| {
             let is_answer = *index == test.index;
             let is_answered = i == answer;
+
             let color = if is_answer {
                 Color::Green
             } else if is_answered {
@@ -211,6 +212,7 @@ fn show_test(
             } else {
                 Color::Gray
             };
+
             frame.render_widget(
                 Paragraph::new(format!("{}: {}", i + 1, cards[*index].join("\n"),))
                     .wrap(Wrap { trim: false })
@@ -249,6 +251,7 @@ fn get_answer() -> Result<usize, FlashrError> {
         }
         break;
     }
+    //Get answer
     loop {
         if event::poll(Duration::from_secs(1)).map_err(UiError::IoError)? {
             if let Event::Key(key) = event::read().map_err(UiError::IoError)? {
@@ -325,6 +328,8 @@ fn get_tests(decks: Vec<Deck>) -> Result<TestSuite, FlashrError> {
     })
 }
 
+//TODO: Needs to hande "out of" case
+//Could probably be smarter too
 fn get_other_test_card_indices(
     this_index: usize,
     total_cards: usize,
@@ -348,6 +353,8 @@ fn get_other_test_card_indices(
         .collect()
 }
 
+//TODO: Needs to hande "out of" case
+//Could probably be smarter too
 fn get_other_test_face(this_face: usize, total_faces: usize, rng: &mut ThreadRng) -> usize {
     loop {
         let face = rng.gen_range(0..total_faces);
