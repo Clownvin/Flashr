@@ -101,7 +101,7 @@ fn show_test(
     term: &mut TerminalWrapper,
     rng: &mut ThreadRng,
     cards: &[Card],
-    test: Test,
+    test: TestCase,
     total_faces: usize,
     progress: f64,
 ) -> Result<bool, FlashrError> {
@@ -276,10 +276,10 @@ fn get_answer() -> Result<usize, FlashrError> {
 struct TestSuite {
     face_count: usize,
     cards: Vec<Card>,
-    tests: Vec<Test>,
+    tests: Vec<TestCase>,
 }
 
-struct Test {
+struct TestCase {
     index: usize,
     face: usize,
 }
@@ -316,7 +316,7 @@ fn get_tests(decks: Vec<Deck>) -> Result<TestSuite, FlashrError> {
         });
 
     let mut tests = (0..expected_face_count)
-        .flat_map(|face| (0..total_cards).map(move |index| Test { index, face }))
+        .flat_map(|face| (0..total_cards).map(move |index| TestCase { index, face }))
         .collect::<Vec<_>>();
 
     tests.shuffle(&mut rand::thread_rng());
