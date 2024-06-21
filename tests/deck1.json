@@ -1,6 +1,5 @@
 {
     "name": "Kanji Words",
-    "face_count": 3,
     "faces": ["Kanji", "Hiragana", "English"],
     "cards": [
         [

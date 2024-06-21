@@ -285,14 +285,13 @@ fn get_tests(decks: Vec<Deck>) -> Result<TestSuite, FlashrError> {
         return Err(FlashrError::DeckMismatchError("No decks provided".into()));
     }
 
-    let expected_face_count = decks[0].face_count;
-    let found_unexpected_face_count = decks
+    let expected_face_count = decks[0].faces.len();
+    if let Some(deck) = decks
         .iter()
-        .find(|deck| deck.face_count != expected_face_count);
-    if found_unexpected_face_count.is_some() {
-        let deck = found_unexpected_face_count.unwrap();
+        .find(|deck| deck.faces.len() != expected_face_count)
+    {
         let name = deck.name.to_string();
-        let face_count = deck.face_count;
+        let face_count = deck.faces.len();
         return Err(FlashrError::DeckMismatchError(format!("At least one deck, {name}, has an incorrect amount of cards. Expected {expected_face_count}, but has {face_count}")));
     }
 

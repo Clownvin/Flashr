@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 ///```JSON
 ///{
 ///  "name": "Kanji Words",
+///  "faces": ["Kanji", "Hiragana", "Definition"],
 ///  "cards": [
 ///    [
 ///      "日本",
@@ -18,22 +19,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct Deck {
     pub name: String,
-    pub face_count: usize,
+    pub faces: Vec<String>,
     pub cards: Vec<Card>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
-pub struct Card(Vec<Face>);
+pub struct Card(Vec<String>);
 
 impl Deref for Card {
-    type Target = Vec<Face>;
+    type Target = Vec<String>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-
-pub type Face = String;
 
 #[derive(Debug)]
 pub enum DeckError {
@@ -100,29 +99,30 @@ fn load_deck_from_file(path: impl Into<PathBuf>) -> Result<Deck, DeckError> {
     validate_deck(deck)
 }
 
+///Card within a deck must have at least two faces: a front and back
+const MIN_FACE_COUNT: usize = 2;
+
 fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
     if deck.cards.is_empty() {
         return Err(DeckError::InvalidDeck("No cards in deck".into()));
     }
 
-    let expected_face_count = deck.face_count;
+    let expected_face_count = deck.faces.len();
 
-    if expected_face_count < 2 {
+    if expected_face_count < MIN_FACE_COUNT {
         return Err(DeckError::InvalidDeck("All cards must have at least two faces, a front and back. More are okay, and will be cycled as well.".into()));
     }
 
-    let has_invalid_face_count = deck
+    if let Some((index, card)) = deck
         .cards
         .iter()
         .enumerate()
-        .find(|(_, card)| card.len() != expected_face_count);
-
-    if has_invalid_face_count.is_some() {
-        let (index, card) = has_invalid_face_count.unwrap();
+        .find(|(_, card)| card.len() != expected_face_count)
+    {
         let front = card
             .first()
             .map(|front| front.to_string())
-            .unwrap_or("Missing Front".to_string());
+            .unwrap_or("MISSING FRONT".to_string());
         let face_count = card.len();
 
         return Err(DeckError::InvalidDeck(format!("At least one card, starting at index {index}, has an invalid face count. Expected {expected_face_count}, got {face_count}. Front: {front}.")));
@@ -142,7 +142,7 @@ mod tests {
         let deck_json = r#"
         {
             "name": "Kanji Words",
-            "face_count": 3,
+            "faces": ["Kanji", "Hiragana", "Definition"],
             "cards": [
                 [
                     "日本",
@@ -155,7 +155,7 @@ mod tests {
         let deck: Deck = serde_json::from_str(deck_json)?;
         assert_eq!(deck.cards.len(), 1);
         assert_eq!(deck.name, "Kanji Words");
-        assert_eq!(deck.face_count, 3);
+        assert_eq!(deck.faces.len(), 3);
         assert_eq!(deck.cards[0][2], "Japan");
         Ok(())
     }
