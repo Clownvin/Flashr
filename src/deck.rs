@@ -23,6 +23,14 @@ pub struct Deck {
     pub cards: Vec<Card>,
 }
 
+impl Deref for Deck {
+    type Target = Vec<Card>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.cards
+    }
+}
+
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 pub struct Card(Vec<String>);
 
@@ -114,7 +122,6 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
     }
 
     if let Some((index, card)) = deck
-        .cards
         .iter()
         .enumerate()
         .find(|(_, card)| card.len() != expected_face_count)
@@ -153,10 +160,10 @@ mod tests {
         }"#;
 
         let deck: Deck = serde_json::from_str(deck_json)?;
-        assert_eq!(deck.cards.len(), 1);
+        assert_eq!(deck.len(), 1);
         assert_eq!(deck.name, "Kanji Words");
         assert_eq!(deck.faces.len(), 3);
-        assert_eq!(deck.cards[0][2], "Japan");
+        assert_eq!(deck[0][2], "Japan");
         Ok(())
     }
 

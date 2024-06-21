@@ -295,7 +295,7 @@ fn get_tests(decks: Vec<Deck>) -> Result<TestSuite, FlashrError> {
         return Err(FlashrError::DeckMismatchError(format!("At least one deck, {name}, has an incorrect amount of cards. Expected {expected_face_count}, but has {face_count}")));
     }
 
-    let total_cards = decks.iter().fold(0, |total, deck| total + deck.cards.len());
+    let total_cards = decks.iter().fold(0, |total, deck| total + deck.len());
 
     if total_cards < 4 {
         return Err(FlashrError::DeckMismatchError(
