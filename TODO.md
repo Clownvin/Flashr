@@ -1,8 +1,9 @@
 # TODOs
+- [ ] Deck "faces", to describe which face is which (to support hiragana only + kanji decks together)
+- [ ] Check to ensure each card face has at least 3 (or number of other answers) other cards with non-equal faces
+- [ ] Do not show answers which are same (eg same kana for a kanji)
 - [ ] Refresh on resize
 - [ ] Ability to close
-- [ ] Do not show answers which are same (eg same kana for a kanji)
-- [ ] Deck "faces", to describe which face is which (to support hiragana only + kanji decks together)
 - [ ] Show stats at end (%/# correct/incorrect, etc)
 - [ ] Light mode/dark mode/contrast
 - [ ] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
