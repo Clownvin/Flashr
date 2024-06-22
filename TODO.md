@@ -1,7 +1,5 @@
 # TODOs
-- [ ] Deck "faces", to describe which face is which (to support hiragana only + kanji decks together)
-    - [x] Add "faces" Vec instead of "face_count"
-    - [ ] Create tests based on what the faces "are". Eg, match Kanji with other Kanji and Hiragana with other Hiragana, but based on faces rather than face index
+- [ ] Add validation error ensuring all "faces" are unique per deck
 - [ ] Check to ensure each card face has at least 3 (or number of other answers) other cards with non-equal faces
 - [ ] Do not show answers which are same (eg same kana for a kanji)
 - [ ] Refresh on resize
@@ -15,3 +13,6 @@
 - [ ] Repeat missed problems at end
 - [ ] Track missed problems, and retry them (like duolingo, stretch goal)
 - [x] Show all face information at end (maybe only if missed)?
+- [x] Deck "faces", to describe which face is which (to support hiragana only + kanji decks together)
+    - [x] Add "faces" Vec instead of "face_count"
+    - [x] Create tests based on what the faces "are". Eg, match Kanji with other Kanji and Hiragana with other Hiragana, but based on faces rather than face index

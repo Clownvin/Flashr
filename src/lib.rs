@@ -50,7 +50,6 @@ impl From<std::io::Error> for UiError {
     }
 }
 
-///Test documentation
 pub fn run() -> Result<(), FlashrError> {
     let cli = FlashrCli::parse();
     let mut term = initialize()?;
@@ -63,53 +62,35 @@ fn initialize() -> Result<TerminalWrapper, FlashrError> {
 }
 
 pub fn flash_cards(term: &mut TerminalWrapper, decks: Vec<Deck>) -> Result<(), FlashrError> {
-    let suite = get_tests(decks)?;
+    let suite = get_match_problem_suite(&decks)?;
 
     let mut total_correct = 0;
     let mut total_completed = 0;
 
-    let total_tests = suite.tests.len() as f64;
+    let total_problems = suite.problems.len() as f64;
 
-    let mut rng = rand::thread_rng();
-
-    suite
-        .tests
-        .into_iter()
-        .enumerate()
-        .try_for_each(|(i, test)| {
-            let correct = show_test(
-                term,
-                &mut rng,
-                &suite.cards,
-                test,
-                suite.face_count,
-                i as f64 / total_tests,
-            )?;
+    suite.problems.into_iter().enumerate().try_for_each(
+        |(i, problem)| -> Result<_, FlashrError> {
+            let correct = show_match_problem(term, problem, i as f64 / total_problems)?;
 
             total_completed += 1;
             if correct {
                 total_correct += 1;
             }
 
-            Ok::<_, FlashrError>(())
-        })?;
+            Ok(())
+        },
+    )?;
 
     Ok(())
 }
 
-fn show_test(
+fn show_match_problem(
     term: &mut TerminalWrapper,
-    rng: &mut ThreadRng,
-    cards: &[Card],
-    test: TestCase,
-    total_faces: usize,
+    problem: MatchProblem,
     progress: f64,
 ) -> Result<bool, FlashrError> {
-    let question = cards[test.index][test.face].to_owned();
-    let answer_face = get_other_test_face(test.face, total_faces, rng);
-    let mut answer_indices = get_other_test_card_indices(test.index, cards.len(), 3, rng);
-    answer_indices.extend(std::iter::once(test.index));
-    answer_indices.shuffle(rng);
+    let (question, _question_card) = problem.problem;
 
     term.draw(|frame| {
         let layout = Layout::new(
@@ -134,26 +115,26 @@ fn show_test(
         let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
 
         frame.render_widget(
-            Paragraph::new(question.clone())
+            Paragraph::new(question.to_owned())
                 .wrap(Wrap { trim: false })
                 .alignment(Alignment::Center)
                 .block(Block::bordered().border_type(BorderType::Double)),
             question_area,
         );
 
-        answer_indices.iter().enumerate().for_each(|(i, index)| {
-            frame.render_widget(
-                Paragraph::new(format!(
-                    "{}: {}",
-                    i + 1,
-                    cards[*index][answer_face].to_owned(),
-                ))
-                .wrap(Wrap { trim: false })
-                .alignment(Alignment::Center)
-                .block(Block::bordered().border_type(BorderType::Double)),
-                answer_areas[i],
-            )
-        });
+        problem
+            .answers
+            .iter()
+            .enumerate()
+            .for_each(|(i, (answer, _answer_card))| {
+                frame.render_widget(
+                    Paragraph::new(format!("{}: {}", i + 1, answer))
+                        .wrap(Wrap { trim: false })
+                        .alignment(Alignment::Center)
+                        .block(Block::bordered().border_type(BorderType::Double)),
+                    answer_areas[i],
+                )
+            });
 
         frame.render_widget(
             Gauge::default().percent((progress * 100.0) as u16),
@@ -163,7 +144,7 @@ fn show_test(
     .map_err(UiError::IoError)?;
 
     let answered = get_answer()?;
-    let correct = answer_indices[answered] == test.index;
+    let correct = answered == problem.correct_answer_index;
 
     term.draw(|frame| {
         let layout = Layout::new(
@@ -190,34 +171,38 @@ fn show_test(
         let color = if correct { Color::Green } else { Color::Red };
 
         frame.render_widget(
-            Paragraph::new(question)
+            Paragraph::new(question.to_owned())
                 .wrap(Wrap { trim: false })
                 .alignment(Alignment::Center)
                 .block(Block::bordered().border_type(BorderType::Double).fg(color)),
             question_area,
         );
 
-        answer_indices.iter().enumerate().for_each(|(i, index)| {
-            let is_answer = *index == test.index;
-            let is_answered = i == answered;
+        problem
+            .answers
+            .iter()
+            .enumerate()
+            .for_each(|(i, (_answer, answer_card))| {
+                let is_answer = i == problem.correct_answer_index;
+                let is_answered = i == answered;
 
-            let color = if is_answer {
-                Color::Green
-            } else if is_answered {
-                Color::Red
-            } else {
-                Color::Gray
-            };
+                let color = if is_answer {
+                    Color::Green
+                } else if is_answered {
+                    Color::Red
+                } else {
+                    Color::Gray
+                };
 
-            frame.render_widget(
-                Paragraph::new(format!("{}: {}", i + 1, cards[*index].join("\n"),))
-                    .wrap(Wrap { trim: false })
-                    .alignment(Alignment::Center)
-                    .block(Block::bordered().border_type(BorderType::Double))
-                    .fg(color),
-                answer_areas[i],
-            )
-        });
+                frame.render_widget(
+                    Paragraph::new(format!("{}: {}", i + 1, answer_card.join("\n"),))
+                        .wrap(Wrap { trim: false })
+                        .alignment(Alignment::Center)
+                        .block(Block::bordered().border_type(BorderType::Double))
+                        .fg(color),
+                    answer_areas[i],
+                )
+            });
 
         frame.render_widget(
             Gauge::default().percent((progress * 100.0) as u16),
@@ -230,7 +215,7 @@ fn show_test(
 
     loop {
         let answer = get_answer()?;
-        if answer_indices[answer] == test.index {
+        if answer == problem.correct_answer_index {
             break;
         }
     }
@@ -269,97 +254,162 @@ fn get_answer() -> Result<usize, FlashrError> {
     }
 }
 
-struct TestSuite {
-    face_count: usize,
-    cards: Vec<Card>,
-    tests: Vec<TestCase>,
+struct MatchProblemSuite<'suite> {
+    problems: Vec<MatchProblem<'suite>>,
 }
 
-struct TestCase {
-    index: usize,
-    face: usize,
+type FaceAndCard<'suite> = (&'suite String, &'suite Card);
+
+struct MatchProblem<'suite> {
+    problem: FaceAndCard<'suite>,
+    answers: Vec<FaceAndCard<'suite>>,
+    correct_answer_index: usize,
 }
 
-fn get_tests(decks: Vec<Deck>) -> Result<TestSuite, FlashrError> {
+fn get_match_problem_suite(decks: &[Deck]) -> Result<MatchProblemSuite, FlashrError> {
     if decks.is_empty() {
         return Err(FlashrError::DeckMismatchError("No decks provided".into()));
     }
 
-    let expected_face_count = decks[0].faces.len();
-    if let Some(deck) = decks
+    let rng = &mut rand::thread_rng();
+
+    let mut problems = decks.iter().try_fold(
+        Vec::with_capacity(decks.iter().fold(0, |total, deck| {
+            total + (deck.cards.len() * deck.faces.len())
+        })),
+        |mut problems, deck| -> Result<_, FlashrError> {
+            let deck_problems = get_match_problems_for_deck(deck, decks, rng)?;
+            problems.extend(deck_problems);
+            Ok(problems)
+        },
+    )?;
+
+    problems.shuffle(rng);
+
+    Ok(MatchProblemSuite { problems })
+}
+
+fn get_match_problems_for_deck<'decks>(
+    deck: &'decks Deck,
+    decks: &'decks [Deck],
+    rng: &mut ThreadRng,
+) -> Result<Vec<MatchProblem<'decks>>, FlashrError> {
+    let deck_problems = deck.faces.iter().enumerate().try_fold(
+        Vec::with_capacity(deck.faces.len() * deck.cards.len()),
+        |mut problems,
+         (problem_face_index_original, problem_face)|
+         -> Result<Vec<_>, FlashrError> {
+            let problems_for_face = get_match_problems_for_deck_face(
+                deck,
+                decks,
+                problem_face_index_original,
+                problem_face,
+                rng,
+            )?;
+            problems.extend(problems_for_face);
+            Ok(problems)
+        },
+    )?;
+    Ok(deck_problems)
+}
+
+fn get_match_problems_for_deck_face<'decks>(
+    deck: &'decks Deck,
+    decks: &'decks [Deck],
+    problem_face_index: usize,
+    problem_face: &'decks String,
+    rng: &mut ThreadRng,
+) -> Result<Vec<MatchProblem<'decks>>, FlashrError> {
+    let answers_possible = deck
+        .faces
         .iter()
-        .find(|deck| deck.faces.len() != expected_face_count)
-    {
-        let name = deck.name.to_string();
-        let face_count = deck.faces.len();
-        return Err(FlashrError::DeckMismatchError(format!("At least one deck, {name}, has an incorrect amount of cards. Expected {expected_face_count}, but has {face_count}")));
-    }
+        .enumerate()
+        .filter(|(answer_face_index, _answer_face)| *answer_face_index != problem_face_index)
+        .map(|(answer_face_index, answer_face)| {
+            (
+                answer_face_index,
+                decks
+                    .iter()
+                    .filter_map(|deck| {
+                        deck.faces
+                            .iter()
+                            .enumerate()
+                            .find(|(_deck_face_index, deck_face)| *deck_face == answer_face)
+                            .map(|(deck_face_index, _deck_face)| (deck, deck_face_index))
+                    })
+                    .flat_map(|(deck, deck_face_index)| {
+                        deck.cards
+                            .iter()
+                            .map(move |card| (&card[deck_face_index], card))
+                    })
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .filter(|(_answer_face_index, cards)| cards.len() > 3)
+        .collect::<Vec<_>>();
 
-    let total_cards = decks.iter().fold(0, |total, deck| total + deck.len());
-
-    if total_cards < 4 {
+    if answers_possible.is_empty() {
+        let deck_name = &deck.name;
         return Err(FlashrError::DeckMismatchError(
-            "Requires at least 4 cards to run".into(),
+            format!("Unable to find enough possible answers for the \"{problem_face}\" face of the \"{deck_name}\" deck"),
         ));
     }
 
-    let cards = decks
-        .into_iter()
-        .fold(Vec::with_capacity(total_cards), |mut cards, deck| {
-            cards.extend(deck.cards);
-            cards
-        });
+    let problems_for_face = deck.cards.iter().try_fold(
+        Vec::with_capacity(deck.cards.len()),
+        |mut problems, card| {
+            let (answer_face_index, answer_cards) =
+                &answers_possible[rng.gen_range(0..answers_possible.len())];
 
-    let mut tests = (0..expected_face_count)
-        .flat_map(|face| (0..total_cards).map(move |index| TestCase { index, face }))
-        .collect::<Vec<_>>();
+            //NOTE: Shuffling here as well so that the filter isn't deterministic
+            //Otherwise, it would always filter out answers that appear later
+            let mut answer_cards = answer_cards.clone();
+            answer_cards.shuffle(rng);
 
-    tests.shuffle(&mut rand::thread_rng());
+            let mut seen = vec![&card[*answer_face_index]];
+            let mut answers = answer_cards
+                .into_iter()
+                .filter(|(answer, _answer_card)| {
+                    if seen.contains(answer) {
+                        false
+                    } else {
+                        seen.push(answer);
+                        true
+                    }
+                })
+                .take(3)
+                .collect::<Vec<_>>();
 
-    Ok(TestSuite {
-        face_count: expected_face_count,
-        cards,
-        tests,
-    })
-}
-
-//TODO: Needs to hande "out of" case
-//Could probably be smarter too
-fn get_other_test_card_indices(
-    this_index: usize,
-    total_cards: usize,
-    count: usize,
-    rng: &mut ThreadRng,
-) -> Vec<usize> {
-    let mut seen = Vec::with_capacity(count + 1);
-    seen.push(this_index);
-
-    (0..count)
-        .map(|_| loop {
-            let index = rng.gen_range(0..total_cards);
-
-            if seen.contains(&index) {
-                continue;
-            } else {
-                seen.push(index);
-                return index;
+            if answers.len() < 3 {
+                return Err(FlashrError::DeckMismatchError(format!(
+                    "Not enough answers for card face \"{}\", using answer face \"{}\"",
+                    card[problem_face_index], deck.faces[*answer_face_index]
+                )));
             }
-        })
-        .collect()
-}
 
-//TODO: Needs to hande "out of" case
-//Could probably be smarter too
-fn get_other_test_face(this_face: usize, total_faces: usize, rng: &mut ThreadRng) -> usize {
-    loop {
-        let face = rng.gen_range(0..total_faces);
+            let correct_answer = &card[*answer_face_index];
 
-        if face == this_face {
-            continue;
-        } else {
-            return face;
-        }
-    }
+            answers.push((correct_answer, card));
+            answers.shuffle(rng);
+
+            let correct_answer_index = answers
+                .iter()
+                .enumerate()
+                .find(|(_i, (answer, _answer_card))| *answer == correct_answer)
+                .map(|(i, _)| i)
+                .unwrap();
+
+            problems.push(MatchProblem {
+                problem: (&card[problem_face_index], card),
+                answers,
+                correct_answer_index,
+            });
+
+            Ok(problems)
+        },
+    )?;
+
+    Ok(problems_for_face)
 }
 
 #[cfg(test)]
