@@ -1,0 +1,11 @@
+{
+    "name": "Too many faces",
+    "faces": ["Front", "Back"],
+    "cards": [
+        [
+            "A",
+            "A back"
+        ],
+        ["B", "B back", "Another back"]
+    ]
+}

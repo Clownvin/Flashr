@@ -171,7 +171,7 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::deck::{Deck, DeckError};
+    use crate::deck::{CardError, Deck, DeckError};
 
     use super::load_decks;
 
@@ -206,8 +206,23 @@ mod tests {
 
     #[test]
     fn load_invalid_decks_from_files() {
-        //TODO: Add more tests for other invalid deck types
-        assert!(load_decks(vec!["./tests/invalid_deck1.json"])
-            .is_err_and(|err| matches!(err, DeckError::InvalidCard(_, _))))
+        assert!(
+            load_decks(vec!["./tests/not_enough_card_faces.json"]).is_err_and(|err| matches!(
+                err,
+                DeckError::InvalidCard(_, CardError::NotEnoughFaces(_))
+            ))
+        );
+        assert!(
+            load_decks(vec!["./tests/too_many_card_faces.json"]).is_err_and(|err| matches!(
+                err,
+                DeckError::InvalidCard(_, CardError::TooManyFaces(_))
+            ))
+        );
+        assert!(load_decks(vec!["./tests/not_enough_faces.json"])
+            .is_err_and(|err| matches!(err, DeckError::NotEnoughFaces(_))));
+        assert!(load_decks(vec!["./tests/not_enough_cards.json"])
+            .is_err_and(|err| matches!(err, DeckError::NotEnoughCards(_))));
+        assert!(load_decks(vec!["./tests/duplicate_face.json"])
+            .is_err_and(|err| matches!(err, DeckError::DuplicateFace(_, _))));
     }
 }
