@@ -5,8 +5,21 @@ use flashr::{
 
 fn main() {
     let result = flashr::run();
-    if let Err(err) = result {
-        match err {
+    match result {
+        Ok((total_correct, total)) => {
+            println!(
+                "You got {total_correct} correct out of {total} ({:.2}%)",
+                if total == 0 {
+                    0.0
+                } else {
+                    total_correct as f64 / total as f64
+                }
+            );
+            if total_correct == total && total > 0 {
+                println!("Well done!");
+            }
+        }
+        Err(err) => match err {
             FlashrError::DeckMismatchError(reason) => eprintln!("DeckMismatch: {reason}"),
             FlashrError::DeckError(err) => match err {
                 DeckError::NotEnoughCards(deck) => eprintln!(
@@ -39,7 +52,9 @@ fn main() {
                     eprintln!("SerdeError: {err}")
                 }
             },
-            _ => eprintln!("Todo"),
-        }
+            FlashrError::UiError(err) => match err {
+                flashr::UiError::IoError(err) => eprintln!("UiError: IoError: {err}"),
+            },
+        },
     }
 }

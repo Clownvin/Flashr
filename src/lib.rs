@@ -50,35 +50,37 @@ impl From<std::io::Error> for UiError {
     }
 }
 
-pub fn run() -> Result<(), FlashrError> {
+pub fn run() -> Result<(usize, usize), FlashrError> {
     let cli = FlashrCli::parse();
     let mut term = initialize_terminal()?;
     let decks = load_decks(cli.paths)?;
-    flash_cards(&mut term, decks)
+    match_cards(&mut term, decks)
 }
 
 fn initialize_terminal() -> Result<TerminalWrapper, FlashrError> {
     Ok(TerminalWrapper::new().map_err(UiError::IoError)?)
 }
 
-pub fn flash_cards(term: &mut TerminalWrapper, decks: Vec<Deck>) -> Result<(), FlashrError> {
+pub fn match_cards(
+    term: &mut TerminalWrapper,
+    decks: Vec<Deck>,
+) -> Result<(usize, usize), FlashrError> {
     let suite = get_match_problem_suite(&decks)?;
 
-    let mut _total_correct = 0;
-
-    let total_problems = suite.problems.len() as f64;
+    let total_problems = suite.problems.len();
+    let mut total_correct = 0;
 
     for (i, problem) in suite.problems.into_iter().enumerate() {
-        let result = show_match_problem(term, problem, i as f64 / total_problems)?;
+        let result = show_match_problem(term, problem, i as f64 / total_problems as f64)?;
 
         match result {
-            ProblemResult::Correct => _total_correct += 1,
-            ProblemResult::Quit => return Ok(()),
+            ProblemResult::Correct => total_correct += 1,
+            ProblemResult::Quit => return Ok((total_correct, i)),
             ProblemResult::Incorrect => {}
         }
     }
 
-    Ok(())
+    Ok((total_correct, total_problems))
 }
 
 enum ProblemResult {
