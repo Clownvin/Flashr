@@ -58,6 +58,7 @@ pub enum DeckError {
     SerdeError(serde_json::Error),
     NotEnoughFaces(Deck),
     NotEnoughCards(Deck),
+    DuplicateFace(Deck, String),
     InvalidCard(Deck, CardError),
 }
 
@@ -137,6 +138,20 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
 
     if expected_face_count < MIN_FACE_COUNT {
         return Err(DeckError::NotEnoughFaces(deck));
+    }
+
+    let mut seen_faces = Vec::with_capacity(expected_face_count);
+
+    if let Some(face) = deck.faces.iter().find(|face| {
+        if seen_faces.contains(face) {
+            true
+        } else {
+            seen_faces.push(face);
+            false
+        }
+    }) {
+        let face = face.clone();
+        return Err(DeckError::DuplicateFace(deck, face));
     }
 
     if let Some(card) = deck.iter().find(|card| card.len() != expected_face_count) {
