@@ -1,5 +1,6 @@
 # TODOs
 - [ ] Add validation error ensuring all "faces" are unique per deck
+- [ ] Better error handling (match errors and print message rather than panicing on unwrap)
 - [ ] Do not show answers which are same (eg same kana for a kanji)
 - [ ] Refresh on resize
 - [ ] Ability to close
