@@ -1,6 +1,8 @@
 use alt_screen::AltScreen;
-use ratatui::{backend::CrosstermBackend, Frame, Terminal};
+use ratatui::{backend::CrosstermBackend, widgets::Widget, Frame, Terminal};
 use raw_mode::RawMode;
+
+use crate::{FlashrError, UiError};
 
 pub struct TerminalWrapper {
     _alt_screen: AltScreen,
@@ -19,8 +21,15 @@ impl TerminalWrapper {
         })
     }
 
-    pub fn draw(&mut self, draw_fn: impl FnOnce(&mut Frame)) -> Result<(), std::io::Error> {
-        self.terminal.draw(draw_fn)?;
+    pub fn draw(&mut self, draw_fn: impl FnOnce(&mut Frame)) -> Result<(), FlashrError> {
+        self.terminal.draw(draw_fn).map_err(UiError::IoError)?;
+        Ok(())
+    }
+
+    pub fn render_widget(&mut self, widget: impl Widget) -> Result<(), FlashrError> {
+        self.terminal
+            .draw(|frame| frame.render_widget(widget, frame.size()))
+            .map_err(UiError::IoError)?;
         Ok(())
     }
 }

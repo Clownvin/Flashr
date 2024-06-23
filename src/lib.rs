@@ -188,46 +188,34 @@ fn show_match_problem(
     let (question, _question_card) = problem.problem;
 
     loop {
-        term.draw(|frame| {
-            frame.render_widget(
-                MatchProblemWidget {
-                    problem: &problem,
-                    question,
-                    progress,
-                    answer: None,
-                },
-                frame.size(),
-            )
-        })
-        .map_err(UiError::IoError)?;
+        term.render_widget(MatchProblemWidget {
+            problem: &problem,
+            question,
+            progress,
+            answer: None,
+        })?;
 
         match get_user_input()? {
             UserInput::Answer(answered) => {
                 let correct = answered == problem.correct_answer_index;
 
                 loop {
-                    term.draw(|frame| {
-                        frame.render_widget(
-                            MatchProblemWidget {
-                                problem: &problem,
-                                question,
-                                progress,
-                                answer: Some((answered, correct)),
-                            },
-                            frame.size(),
-                        )
-                    })
-                    .map_err(UiError::IoError)?;
+                    term.render_widget(MatchProblemWidget {
+                        problem: &problem,
+                        question,
+                        progress,
+                        answer: Some((answered, correct)),
+                    })?;
 
-                    let answer = get_user_input()?;
-                    if let UserInput::Answer(answer) = answer {
-                        if answer == problem.correct_answer_index {
-                            break;
+                    match get_user_input()? {
+                        UserInput::Answer(answer) => {
+                            if answer == problem.correct_answer_index {
+                                break;
+                            }
                         }
-                    }
-                    if matches!(answer, UserInput::Quit) {
-                        return Ok(ProblemResult::Quit);
-                    }
+                        UserInput::Resize => continue,
+                        UserInput::Quit => return Ok(ProblemResult::Quit),
+                    };
                 }
 
                 return Ok(if correct {
