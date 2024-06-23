@@ -1,4 +1,4 @@
-use std::{fs, ops::Deref, path::PathBuf};
+use std::{fmt::Debug, fs, ops::Deref, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +23,16 @@ pub struct Deck {
     pub cards: Vec<Card>,
 }
 
+impl Debug for Deck {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Deck")
+            .field("name", &self.name)
+            .field("faces", &self.faces)
+            .field("cards", &self.cards.len())
+            .finish()
+    }
+}
+
 impl Deref for Deck {
     type Target = Vec<Card>;
 
@@ -31,7 +41,7 @@ impl Deref for Deck {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Card(Vec<String>);
 
 impl Deref for Card {
@@ -46,7 +56,15 @@ impl Deref for Card {
 pub enum DeckError {
     IoError(std::io::Error),
     SerdeError(serde_json::Error),
-    InvalidDeck(String),
+    NotEnoughFaces(Deck),
+    NotEnoughCards(Deck),
+    InvalidCard(Deck, CardError),
+}
+
+#[derive(Debug)]
+pub enum CardError {
+    NotEnoughFaces(Card),
+    TooManyFaces(Card),
 }
 
 impl From<std::io::Error> for DeckError {
@@ -112,27 +130,25 @@ const MIN_FACE_COUNT: usize = 2;
 
 fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
     if deck.cards.is_empty() {
-        return Err(DeckError::InvalidDeck("No cards in deck".into()));
+        return Err(DeckError::NotEnoughCards(deck));
     }
 
     let expected_face_count = deck.faces.len();
 
     if expected_face_count < MIN_FACE_COUNT {
-        return Err(DeckError::InvalidDeck("All cards must have at least two faces, a front and back. More are okay, and will be cycled as well.".into()));
+        return Err(DeckError::NotEnoughFaces(deck));
     }
 
-    if let Some((index, card)) = deck
-        .iter()
-        .enumerate()
-        .find(|(_, card)| card.len() != expected_face_count)
-    {
-        let front = card
-            .first()
-            .map(|front| front.to_string())
-            .unwrap_or("MISSING FRONT".to_string());
-        let face_count = card.len();
-
-        return Err(DeckError::InvalidDeck(format!("At least one card, starting at index {index}, has an invalid face count. Expected {expected_face_count}, got {face_count}. Front: {front}.")));
+    if let Some(card) = deck.iter().find(|card| card.len() != expected_face_count) {
+        let card = card.clone();
+        return Err(DeckError::InvalidCard(
+            deck,
+            if card.len() > expected_face_count {
+                CardError::TooManyFaces(card)
+            } else {
+                CardError::NotEnoughFaces(card)
+            },
+        ));
     }
 
     Ok(deck)
@@ -175,7 +191,8 @@ mod tests {
 
     #[test]
     fn load_invalid_decks_from_files() {
+        //TODO: Add more tests for other invalid deck types
         assert!(load_decks(vec!["./tests/invalid_deck1.json"])
-            .is_err_and(|err| matches!(err, DeckError::InvalidDeck(_))))
+            .is_err_and(|err| matches!(err, DeckError::InvalidCard(_, _))))
     }
 }
