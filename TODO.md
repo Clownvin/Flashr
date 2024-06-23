@@ -1,7 +1,5 @@
 # TODOs
-- [ ] Add validation error ensuring all "faces" are unique per deck
 - [ ] Better error handling (match errors and print message rather than panicing on unwrap)
-- [ ] Do not show answers which are same (eg same kana for a kanji)
 - [ ] Refresh on resize
 - [ ] Ability to close
 - [ ] Show stats at end (%/# correct/incorrect, etc)
@@ -18,3 +16,5 @@
     - [x] Create tests based on what the faces "are". Eg, match Kanji with other Kanji and Hiragana with other Hiragana, but based on faces rather than face index
     - [x] Check to ensure each card face has at least 3 (or number of other answers) other cards with non-equal faces
         - [ ] Tested
+- [x] Do not show answers which are same (eg same kana for a kanji)
+- [x] Add validation error ensuring all "faces" are unique per deck
