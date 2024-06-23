@@ -7,7 +7,7 @@ use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Stylize},
-    widgets::{Block, BorderType, Gauge, Paragraph, Wrap},
+    widgets::{Block, BorderType, Gauge, Paragraph, Widget, Wrap},
 };
 use terminal::TerminalWrapper;
 
@@ -87,14 +87,19 @@ enum ProblemResult {
     Quit,
 }
 
-fn show_match_problem(
-    term: &mut TerminalWrapper,
-    problem: MatchProblem,
+//NB 'suite lifetime technically not required, but I think it's more accurate
+struct MatchProblemWidget<'decks, 'suite> {
+    question: &'decks String,
+    problem: &'suite MatchProblem<'decks>,
     progress: f64,
-) -> Result<ProblemResult, FlashrError> {
-    let (question, _question_card) = problem.problem;
+    answer: Option<(usize, bool)>,
+}
 
-    term.draw(|frame| {
+impl Widget for MatchProblemWidget<'_, '_> {
+    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
+    where
+        Self: Sized,
+    {
         let layout = Layout::new(
             Direction::Vertical,
             [
@@ -103,7 +108,7 @@ fn show_match_problem(
                 Constraint::Min(1),
             ],
         )
-        .split(frame.size());
+        .split(area);
 
         let question_area = layout[0];
         let answer_area = layout[1];
@@ -116,77 +121,38 @@ fn show_match_problem(
         let layout = Layout::new(Direction::Horizontal, [Constraint::Ratio(1, 2); 2]);
         let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
 
-        frame.render_widget(
-            Paragraph::new(question.clone())
-                .wrap(Wrap { trim: false })
-                .alignment(Alignment::Center)
-                .block(Block::bordered().border_type(BorderType::Double)),
-            question_area,
-        );
-
-        problem
-            .answers
-            .iter()
-            .enumerate()
-            .for_each(|(i, (answer, _answer_card))| {
-                frame.render_widget(
-                    Paragraph::new(format!("{}: {}", i + 1, answer))
-                        .wrap(Wrap { trim: false })
-                        .alignment(Alignment::Center)
-                        .block(Block::bordered().border_type(BorderType::Double)),
-                    answer_areas[i],
-                )
-            });
-
-        frame.render_widget(
-            Gauge::default().percent((progress * 100.0) as u16),
-            progress_area,
-        );
-    })
-    .map_err(UiError::IoError)?;
-
-    match get_user_input()? {
-        UserInput::Answer(answered) => {
-            let correct = answered == problem.correct_answer_index;
-
-            term.draw(|frame| {
-                let layout = Layout::new(
-                    Direction::Vertical,
-                    [
-                        Constraint::Ratio(1, 3),
-                        Constraint::Ratio(2, 3),
-                        Constraint::Min(1),
-                    ],
-                )
-                .split(frame.size());
-
-                let question_area = layout[0];
-                let answer_area = layout[1];
-                let progress_area = layout[2];
-
-                let layout = Layout::new(Direction::Vertical, [Constraint::Ratio(1, 2); 2])
-                    .split(answer_area);
-                let answer_top = layout[0];
-                let answer_bot = layout[1];
-                let layout = Layout::new(Direction::Horizontal, [Constraint::Ratio(1, 2); 2]);
-                let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
-
-                let color = if correct { Color::Green } else { Color::Red };
-
-                frame.render_widget(
-                    Paragraph::new(question.clone())
-                        .wrap(Wrap { trim: false })
-                        .alignment(Alignment::Center)
-                        .block(Block::bordered().border_type(BorderType::Double).fg(color)),
-                    question_area,
-                );
-
-                problem
+        match self.answer {
+            None => {
+                Paragraph::new(self.question.clone())
+                    .wrap(Wrap { trim: false })
+                    .alignment(Alignment::Center)
+                    .block(Block::bordered().border_type(BorderType::Double))
+                    .render(question_area, buf);
+                self.problem
+                    .answers
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, (answer, _answer_card))| {
+                        Paragraph::new(format!("{}: {}", i + 1, answer))
+                            .wrap(Wrap { trim: false })
+                            .alignment(Alignment::Center)
+                            .block(Block::bordered().border_type(BorderType::Double))
+                            .render(answer_areas[i], buf)
+                    });
+            }
+            Some((answered, correct)) => {
+                Paragraph::new(self.question.clone())
+                    .wrap(Wrap { trim: false })
+                    .alignment(Alignment::Center)
+                    .block(Block::bordered().border_type(BorderType::Double))
+                    .fg(if correct { Color::Green } else { Color::Red })
+                    .render(question_area, buf);
+                self.problem
                     .answers
                     .iter()
                     .enumerate()
                     .for_each(|(i, (_answer, answer_card))| {
-                        let is_answer = i == problem.correct_answer_index;
+                        let is_answer = i == self.problem.correct_answer_index;
                         let is_answered = i == answered;
 
                         let color = if is_answer {
@@ -196,21 +162,56 @@ fn show_match_problem(
                         } else {
                             Color::Gray
                         };
-
-                        frame.render_widget(
-                            Paragraph::new(format!("{}: {}", i + 1, answer_card.join("\n"),))
-                                .wrap(Wrap { trim: false })
-                                .alignment(Alignment::Center)
-                                .block(Block::bordered().border_type(BorderType::Double))
-                                .fg(color),
-                            answer_areas[i],
-                        )
+                        Paragraph::new(format!("{}: {}", i + 1, answer_card.join("\n"),))
+                            .wrap(Wrap { trim: false })
+                            .alignment(Alignment::Center)
+                            .block(Block::bordered().border_type(BorderType::Double))
+                            .fg(color)
+                            .render(answer_areas[i], buf)
                     });
+            }
+        }
 
+        Gauge::default()
+            .percent((self.progress * 100.0) as u16)
+            .render(progress_area, buf);
+    }
+}
+
+fn show_match_problem(
+    term: &mut TerminalWrapper,
+    problem: MatchProblem,
+    progress: f64,
+) -> Result<ProblemResult, FlashrError> {
+    let (question, _question_card) = problem.problem;
+
+    term.draw(|frame| {
+        frame.render_widget(
+            MatchProblemWidget {
+                problem: &problem,
+                question,
+                progress,
+                answer: None,
+            },
+            frame.size(),
+        )
+    })
+    .map_err(UiError::IoError)?;
+
+    match get_user_input()? {
+        UserInput::Answer(answered) => {
+            let correct = answered == problem.correct_answer_index;
+
+            term.draw(|frame| {
                 frame.render_widget(
-                    Gauge::default().percent((progress * 100.0) as u16),
-                    progress_area,
-                );
+                    MatchProblemWidget {
+                        problem: &problem,
+                        question,
+                        progress,
+                        answer: Some((answered, correct)),
+                    },
+                    frame.size(),
+                )
             })
             .map_err(UiError::IoError)?;
 
