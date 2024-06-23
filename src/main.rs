@@ -12,7 +12,7 @@ fn main() {
                 if total == 0 {
                     0.0
                 } else {
-                    total_correct as f64 / total as f64
+                    (total_correct as f64 / total as f64) * 100.0
                 }
             );
             if total_correct == total && total > 0 {
