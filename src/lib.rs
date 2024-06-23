@@ -11,7 +11,7 @@ use ratatui::{
 };
 use terminal::TerminalWrapper;
 
-mod deck;
+pub mod deck;
 mod terminal;
 
 #[derive(Parser, Debug)]
