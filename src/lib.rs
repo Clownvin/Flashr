@@ -64,32 +64,34 @@ fn initialize() -> Result<TerminalWrapper, FlashrError> {
 pub fn flash_cards(term: &mut TerminalWrapper, decks: Vec<Deck>) -> Result<(), FlashrError> {
     let suite = get_match_problem_suite(&decks)?;
 
-    let mut total_correct = 0;
-    let mut total_completed = 0;
+    let mut _total_correct = 0;
 
     let total_problems = suite.problems.len() as f64;
 
-    suite.problems.into_iter().enumerate().try_for_each(
-        |(i, problem)| -> Result<_, FlashrError> {
-            let correct = show_match_problem(term, problem, i as f64 / total_problems)?;
+    for (i, problem) in suite.problems.into_iter().enumerate() {
+        let result = show_match_problem(term, problem, i as f64 / total_problems)?;
 
-            total_completed += 1;
-            if correct {
-                total_correct += 1;
-            }
-
-            Ok(())
-        },
-    )?;
+        match result {
+            ProblemResult::Correct => _total_correct += 1,
+            ProblemResult::Quit => return Ok(()),
+            ProblemResult::Incorrect => {}
+        }
+    }
 
     Ok(())
+}
+
+enum ProblemResult {
+    Correct,
+    Incorrect,
+    Quit,
 }
 
 fn show_match_problem(
     term: &mut TerminalWrapper,
     problem: MatchProblem,
     progress: f64,
-) -> Result<bool, FlashrError> {
+) -> Result<ProblemResult, FlashrError> {
     let (question, _question_card) = problem.problem;
 
     term.draw(|frame| {
@@ -143,87 +145,103 @@ fn show_match_problem(
     })
     .map_err(UiError::IoError)?;
 
-    let answered = get_answer()?;
-    let correct = answered == problem.correct_answer_index;
+    match get_user_input()? {
+        UserInput::Answer(answered) => {
+            let correct = answered == problem.correct_answer_index;
 
-    term.draw(|frame| {
-        let layout = Layout::new(
-            Direction::Vertical,
-            [
-                Constraint::Ratio(1, 3),
-                Constraint::Ratio(2, 3),
-                Constraint::Min(1),
-            ],
-        )
-        .split(frame.size());
+            term.draw(|frame| {
+                let layout = Layout::new(
+                    Direction::Vertical,
+                    [
+                        Constraint::Ratio(1, 3),
+                        Constraint::Ratio(2, 3),
+                        Constraint::Min(1),
+                    ],
+                )
+                .split(frame.size());
 
-        let question_area = layout[0];
-        let answer_area = layout[1];
-        let progress_area = layout[2];
+                let question_area = layout[0];
+                let answer_area = layout[1];
+                let progress_area = layout[2];
 
-        let layout =
-            Layout::new(Direction::Vertical, [Constraint::Ratio(1, 2); 2]).split(answer_area);
-        let answer_top = layout[0];
-        let answer_bot = layout[1];
-        let layout = Layout::new(Direction::Horizontal, [Constraint::Ratio(1, 2); 2]);
-        let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
+                let layout = Layout::new(Direction::Vertical, [Constraint::Ratio(1, 2); 2])
+                    .split(answer_area);
+                let answer_top = layout[0];
+                let answer_bot = layout[1];
+                let layout = Layout::new(Direction::Horizontal, [Constraint::Ratio(1, 2); 2]);
+                let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
 
-        let color = if correct { Color::Green } else { Color::Red };
-
-        frame.render_widget(
-            Paragraph::new(question.clone())
-                .wrap(Wrap { trim: false })
-                .alignment(Alignment::Center)
-                .block(Block::bordered().border_type(BorderType::Double).fg(color)),
-            question_area,
-        );
-
-        problem
-            .answers
-            .iter()
-            .enumerate()
-            .for_each(|(i, (_answer, answer_card))| {
-                let is_answer = i == problem.correct_answer_index;
-                let is_answered = i == answered;
-
-                let color = if is_answer {
-                    Color::Green
-                } else if is_answered {
-                    Color::Red
-                } else {
-                    Color::Gray
-                };
+                let color = if correct { Color::Green } else { Color::Red };
 
                 frame.render_widget(
-                    Paragraph::new(format!("{}: {}", i + 1, answer_card.join("\n"),))
+                    Paragraph::new(question.clone())
                         .wrap(Wrap { trim: false })
                         .alignment(Alignment::Center)
-                        .block(Block::bordered().border_type(BorderType::Double))
-                        .fg(color),
-                    answer_areas[i],
-                )
-            });
+                        .block(Block::bordered().border_type(BorderType::Double).fg(color)),
+                    question_area,
+                );
 
-        frame.render_widget(
-            Gauge::default().percent((progress * 100.0) as u16),
-            progress_area,
-        );
-    })
-    .map_err(UiError::IoError)?;
+                problem
+                    .answers
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, (_answer, answer_card))| {
+                        let is_answer = i == problem.correct_answer_index;
+                        let is_answered = i == answered;
 
-    // thread::sleep(Duration::from_secs(if correct { 0 } else { 5 }));
+                        let color = if is_answer {
+                            Color::Green
+                        } else if is_answered {
+                            Color::Red
+                        } else {
+                            Color::Gray
+                        };
 
-    loop {
-        let answer = get_answer()?;
-        if answer == problem.correct_answer_index {
-            break;
+                        frame.render_widget(
+                            Paragraph::new(format!("{}: {}", i + 1, answer_card.join("\n"),))
+                                .wrap(Wrap { trim: false })
+                                .alignment(Alignment::Center)
+                                .block(Block::bordered().border_type(BorderType::Double))
+                                .fg(color),
+                            answer_areas[i],
+                        )
+                    });
+
+                frame.render_widget(
+                    Gauge::default().percent((progress * 100.0) as u16),
+                    progress_area,
+                );
+            })
+            .map_err(UiError::IoError)?;
+
+            loop {
+                let answer = get_user_input()?;
+                if let UserInput::Answer(answer) = answer {
+                    if answer == problem.correct_answer_index {
+                        break;
+                    }
+                }
+                if matches!(answer, UserInput::Quit) {
+                    return Ok(ProblemResult::Quit);
+                }
+            }
+
+            Ok(if correct {
+                ProblemResult::Correct
+            } else {
+                ProblemResult::Incorrect
+            })
         }
+        UserInput::Quit => Ok(ProblemResult::Quit),
     }
-
-    Ok(correct)
 }
 
-fn get_answer() -> Result<usize, FlashrError> {
+enum UserInput {
+    Answer(usize),
+    Quit,
+}
+
+fn get_user_input() -> Result<UserInput, FlashrError> {
     //Clear the loop
     loop {
         if event::poll(Duration::from_millis(0)).map_err(UiError::IoError)? {
@@ -237,15 +255,16 @@ fn get_answer() -> Result<usize, FlashrError> {
         if event::poll(Duration::from_secs(1)).map_err(UiError::IoError)? {
             if let Event::Key(key) = event::read().map_err(UiError::IoError)? {
                 if key.kind == event::KeyEventKind::Press {
-                    let answer = match key.code {
-                        KeyCode::Char('1') => Some(0),
-                        KeyCode::Char('2') => Some(1),
-                        KeyCode::Char('3') => Some(2),
-                        KeyCode::Char('4') => Some(3),
+                    let input = match key.code {
+                        KeyCode::Char('1') => Some(UserInput::Answer(0)),
+                        KeyCode::Char('2') => Some(UserInput::Answer(1)),
+                        KeyCode::Char('3') => Some(UserInput::Answer(2)),
+                        KeyCode::Char('4') => Some(UserInput::Answer(3)),
+                        KeyCode::Esc | KeyCode::Char('q') => Some(UserInput::Quit),
                         _ => None,
                     };
 
-                    if let Some(answer) = answer {
+                    if let Some(answer) = input {
                         return Ok(answer);
                     }
                 }
