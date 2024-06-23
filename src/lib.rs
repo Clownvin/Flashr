@@ -52,12 +52,12 @@ impl From<std::io::Error> for UiError {
 
 pub fn run() -> Result<(), FlashrError> {
     let cli = FlashrCli::parse();
-    let mut term = initialize()?;
+    let mut term = initialize_terminal()?;
     let decks = load_decks(cli.paths)?;
     flash_cards(&mut term, decks)
 }
 
-fn initialize() -> Result<TerminalWrapper, FlashrError> {
+fn initialize_terminal() -> Result<TerminalWrapper, FlashrError> {
     Ok(TerminalWrapper::new().map_err(UiError::IoError)?)
 }
 
