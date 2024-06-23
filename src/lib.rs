@@ -115,7 +115,7 @@ fn show_match_problem(
         let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
 
         frame.render_widget(
-            Paragraph::new(question.to_owned())
+            Paragraph::new(question.clone())
                 .wrap(Wrap { trim: false })
                 .alignment(Alignment::Center)
                 .block(Block::bordered().border_type(BorderType::Double)),
@@ -171,7 +171,7 @@ fn show_match_problem(
         let color = if correct { Color::Green } else { Color::Red };
 
         frame.render_widget(
-            Paragraph::new(question.to_owned())
+            Paragraph::new(question.clone())
                 .wrap(Wrap { trim: false })
                 .alignment(Alignment::Center)
                 .block(Block::bordered().border_type(BorderType::Double).fg(color)),
