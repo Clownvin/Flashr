@@ -187,60 +187,64 @@ fn show_match_problem(
 ) -> Result<ProblemResult, FlashrError> {
     let (question, _question_card) = problem.problem;
 
-    term.draw(|frame| {
-        frame.render_widget(
-            MatchProblemWidget {
-                problem: &problem,
-                question,
-                progress,
-                answer: None,
-            },
-            frame.size(),
-        )
-    })
-    .map_err(UiError::IoError)?;
+    loop {
+        term.draw(|frame| {
+            frame.render_widget(
+                MatchProblemWidget {
+                    problem: &problem,
+                    question,
+                    progress,
+                    answer: None,
+                },
+                frame.size(),
+            )
+        })
+        .map_err(UiError::IoError)?;
 
-    match get_user_input()? {
-        UserInput::Answer(answered) => {
-            let correct = answered == problem.correct_answer_index;
+        match get_user_input()? {
+            UserInput::Answer(answered) => {
+                let correct = answered == problem.correct_answer_index;
 
-            term.draw(|frame| {
-                frame.render_widget(
-                    MatchProblemWidget {
-                        problem: &problem,
-                        question,
-                        progress,
-                        answer: Some((answered, correct)),
-                    },
-                    frame.size(),
-                )
-            })
-            .map_err(UiError::IoError)?;
+                loop {
+                    term.draw(|frame| {
+                        frame.render_widget(
+                            MatchProblemWidget {
+                                problem: &problem,
+                                question,
+                                progress,
+                                answer: Some((answered, correct)),
+                            },
+                            frame.size(),
+                        )
+                    })
+                    .map_err(UiError::IoError)?;
 
-            loop {
-                let answer = get_user_input()?;
-                if let UserInput::Answer(answer) = answer {
-                    if answer == problem.correct_answer_index {
-                        break;
+                    let answer = get_user_input()?;
+                    if let UserInput::Answer(answer) = answer {
+                        if answer == problem.correct_answer_index {
+                            break;
+                        }
+                    }
+                    if matches!(answer, UserInput::Quit) {
+                        return Ok(ProblemResult::Quit);
                     }
                 }
-                if matches!(answer, UserInput::Quit) {
-                    return Ok(ProblemResult::Quit);
-                }
-            }
 
-            Ok(if correct {
-                ProblemResult::Correct
-            } else {
-                ProblemResult::Incorrect
-            })
-        }
-        UserInput::Quit => Ok(ProblemResult::Quit),
+                return Ok(if correct {
+                    ProblemResult::Correct
+                } else {
+                    ProblemResult::Incorrect
+                });
+            }
+            UserInput::Resize => continue,
+            UserInput::Quit => return Ok(ProblemResult::Quit),
+        };
     }
 }
 
 enum UserInput {
     Answer(usize),
+    Resize,
     Quit,
 }
 
@@ -256,21 +260,26 @@ fn get_user_input() -> Result<UserInput, FlashrError> {
     //Get answer
     loop {
         if event::poll(Duration::from_secs(1)).map_err(UiError::IoError)? {
-            if let Event::Key(key) = event::read().map_err(UiError::IoError)? {
-                if key.kind == event::KeyEventKind::Press {
-                    let input = match key.code {
-                        KeyCode::Char('1') => Some(UserInput::Answer(0)),
-                        KeyCode::Char('2') => Some(UserInput::Answer(1)),
-                        KeyCode::Char('3') => Some(UserInput::Answer(2)),
-                        KeyCode::Char('4') => Some(UserInput::Answer(3)),
-                        KeyCode::Esc | KeyCode::Char('q') => Some(UserInput::Quit),
-                        _ => None,
-                    };
+            let event = event::read().map_err(UiError::IoError)?;
+            match event {
+                Event::Key(key) => {
+                    if key.kind == event::KeyEventKind::Press {
+                        let input = match key.code {
+                            KeyCode::Char('1') => Some(UserInput::Answer(0)),
+                            KeyCode::Char('2') => Some(UserInput::Answer(1)),
+                            KeyCode::Char('3') => Some(UserInput::Answer(2)),
+                            KeyCode::Char('4') => Some(UserInput::Answer(3)),
+                            KeyCode::Esc | KeyCode::Char('q') => Some(UserInput::Quit),
+                            _ => None,
+                        };
 
-                    if let Some(answer) = input {
-                        return Ok(answer);
+                        if let Some(answer) = input {
+                            return Ok(answer);
+                        }
                     }
                 }
+                Event::Resize(_, _) => return Ok(UserInput::Resize),
+                _ => {}
             }
         }
     }

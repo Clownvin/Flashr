@@ -1,5 +1,4 @@
 # TODOs
-- [ ] Refresh on resize
 - [ ] Light mode/dark mode/contrast
 - [ ] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
     - MVP mode should be called "match"
@@ -18,3 +17,4 @@
 - [x] Better error handling (match errors and print message rather than panicing on unwrap)
 - [x] Ability to close
 - [x] Show stats at end (%/# correct/incorrect, etc)
+- [x] Refresh on resize
