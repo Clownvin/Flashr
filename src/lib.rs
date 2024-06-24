@@ -335,30 +335,31 @@ fn get_match_problems_for_deck_face<'decks>(
     problem_face: &'decks String,
     rng: &mut ThreadRng,
 ) -> Result<Vec<MatchProblem<'decks>>, FlashrError> {
-    let answers_possible = deck
+    let faces_possible = deck
         .faces
         .iter()
         .enumerate()
-        .filter(|(answer_face_index, _answer_face)| *answer_face_index != problem_face_index)
+        .filter(|(answer_face_index, _answer_face)| *answer_face_index != problem_face_index);
+
+    let answers_possible = faces_possible
         .map(|(answer_face_index, answer_face)| {
-            (
-                answer_face_index,
-                decks
+            let decks_with_face = decks.iter().filter_map(|deck| {
+                deck.faces
                     .iter()
-                    .filter_map(|deck| {
-                        deck.faces
-                            .iter()
-                            .enumerate()
-                            .find(|(_deck_face_index, deck_face)| *deck_face == answer_face)
-                            .map(|(deck_face_index, _deck_face)| (deck, deck_face_index))
-                    })
-                    .flat_map(|(deck, deck_face_index)| {
-                        deck.cards
-                            .iter()
-                            .map(move |card| (&card[deck_face_index], card))
-                    })
-                    .collect::<Vec<_>>(),
-            )
+                    .enumerate()
+                    .find(|(_deck_face_index, deck_face)| *deck_face == answer_face)
+                    .map(|(deck_face_index, _deck_face)| (deck, deck_face_index))
+            });
+
+            let answers_for_face = decks_with_face
+                .flat_map(|(deck, deck_face_index)| {
+                    deck.cards
+                        .iter()
+                        .map(move |card| (&card[deck_face_index], card))
+                })
+                .collect::<Vec<_>>();
+
+            (answer_face_index, answers_for_face)
         })
         .filter(|(_answer_face_index, cards)| cards.len() > 3)
         .collect::<Vec<_>>();
