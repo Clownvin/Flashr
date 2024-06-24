@@ -91,7 +91,6 @@ enum ProblemResult {
 
 //NB 'suite lifetime technically not required, but I think it's more accurate
 struct MatchProblemWidget<'decks, 'suite> {
-    question: &'decks String,
     problem: &'suite MatchProblem<'decks>,
     progress: f64,
     answer: Option<(usize, bool)>,
@@ -123,54 +122,53 @@ impl Widget for MatchProblemWidget<'_, '_> {
         let layout = Layout::new(Direction::Horizontal, [Constraint::Ratio(1, 2); 2]);
         let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
 
+        let question = self.problem.question.0;
+
         match self.answer {
             None => {
-                Paragraph::new(self.question.clone())
+                Paragraph::new(question.clone())
                     .wrap(Wrap { trim: false })
                     .alignment(Alignment::Center)
                     .block(Block::bordered().border_type(BorderType::Double))
                     .render(question_area, buf);
-                self.problem
-                    .answers
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, (answer, _answer_card))| {
+                self.problem.answers.iter().enumerate().for_each(
+                    |(i, ((answer, _answer_card), _))| {
                         Paragraph::new(format!("{}: {}", i + 1, answer))
                             .wrap(Wrap { trim: false })
                             .alignment(Alignment::Center)
                             .block(Block::bordered().border_type(BorderType::Double))
                             .render(answer_areas[i], buf)
-                    });
+                    },
+                );
             }
-            Some((answered, correct)) => {
-                Paragraph::new(self.question.clone())
+            Some((index_answered, correct)) => {
+                Paragraph::new(question.clone())
                     .wrap(Wrap { trim: false })
                     .alignment(Alignment::Center)
                     .block(Block::bordered().border_type(BorderType::Double))
                     .fg(if correct { Color::Green } else { Color::Red })
                     .render(question_area, buf);
-                self.problem
-                    .answers
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, (_answer, answer_card))| {
-                        let is_answer = i == self.problem.correct_answer_index;
-                        let is_answered = i == answered;
 
-                        let color = if is_answer {
+                self.problem.answers.iter().enumerate().for_each(
+                    |(index_problem, ((_, card_answer), is_correct))| {
+                        let is_answered = index_problem == index_answered;
+
+                        Paragraph::new(
+                            format!("{}: {}", index_problem + 1, card_answer.join("\n"),),
+                        )
+                        .wrap(Wrap { trim: false })
+                        .alignment(Alignment::Center)
+                        .block(Block::bordered().border_type(BorderType::Double))
+                        .fg(if *is_correct {
                             Color::Green
                         } else if is_answered {
                             Color::Red
                         } else {
                             Color::Gray
-                        };
-                        Paragraph::new(format!("{}: {}", i + 1, answer_card.join("\n"),))
-                            .wrap(Wrap { trim: false })
-                            .alignment(Alignment::Center)
-                            .block(Block::bordered().border_type(BorderType::Double))
-                            .fg(color)
-                            .render(answer_areas[i], buf)
-                    });
+                        })
+                        .render(answer_areas[index_problem], buf)
+                    },
+                );
             }
         }
 
@@ -185,31 +183,29 @@ fn show_match_problem(
     problem: MatchProblem,
     progress: f64,
 ) -> Result<ProblemResult, FlashrError> {
-    let (question, _question_card) = problem.problem;
+    let problem = &problem;
 
     loop {
         term.render_widget(MatchProblemWidget {
-            problem: &problem,
-            question,
+            problem,
             progress,
             answer: None,
         })?;
 
         match get_user_input()? {
             UserInput::Answer(answered) => {
-                let correct = answered == problem.correct_answer_index;
+                let correct = answered == problem.index_answer_correct;
 
                 loop {
                     term.render_widget(MatchProblemWidget {
-                        problem: &problem,
-                        question,
+                        problem,
                         progress,
                         answer: Some((answered, correct)),
                     })?;
 
                     match get_user_input()? {
                         UserInput::Answer(answer) => {
-                            if answer == problem.correct_answer_index {
+                            if answer == problem.index_answer_correct {
                                 break;
                             }
                         }
@@ -280,9 +276,9 @@ struct MatchProblemSuite<'suite> {
 type FaceAndCard<'suite> = (&'suite String, &'suite Card);
 
 struct MatchProblem<'suite> {
-    problem: FaceAndCard<'suite>,
-    answers: Vec<FaceAndCard<'suite>>,
-    correct_answer_index: usize,
+    question: FaceAndCard<'suite>,
+    answers: Vec<(FaceAndCard<'suite>, bool)>,
+    index_answer_correct: usize,
 }
 
 fn get_match_problem_suite(decks: &[Deck]) -> Result<MatchProblemSuite, FlashrError> {
@@ -397,6 +393,7 @@ fn get_match_problems_for_deck_face<'decks>(
                     }
                 })
                 .take(3)
+                .map(|answer_and_card| (answer_and_card, false))
                 .collect::<Vec<_>>();
 
             if answers.len() < 3 {
@@ -408,20 +405,20 @@ fn get_match_problems_for_deck_face<'decks>(
 
             let correct_answer = &card[*answer_face_index];
 
-            answers.push((correct_answer, card));
+            answers.push(((correct_answer, card), true));
             answers.shuffle(rng);
 
-            let correct_answer_index = answers
+            let index_answer_correct = answers
                 .iter()
                 .enumerate()
-                .find(|(_i, (answer, _answer_card))| *answer == correct_answer)
+                .find(|(_, (_, correct))| *correct)
                 .map(|(i, _)| i)
                 .unwrap();
 
             problems.push(MatchProblem {
-                problem: (&card[problem_face_index], card),
+                question: (&card[problem_face_index], card),
                 answers,
-                correct_answer_index,
+                index_answer_correct,
             });
 
             Ok(problems)
