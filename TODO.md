@@ -1,11 +1,11 @@
 # TODOs
-- [ ] Light mode/dark mode/contrast
-- [ ] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
-    - MVP mode should be called "match"
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
-- [ ] Additional mode: "mixed" - Random mix of all modes
+    - MVP mode should be called "match"
+- [ ] Additional mode: "mixed" - Random mix of all (non-flash) modes
+- [ ] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
 - [ ] Repeat missed problems at end
 - [ ] Track missed problems, and retry them (like duolingo, stretch goal)
+- [ ] Light mode/dark mode/contrast
 - [x] Show all face information at end (maybe only if missed)?
 - [x] Deck "faces", to describe which face is which (to support hiragana only + kanji decks together)
     - [x] Add "faces" Vec instead of "face_count"
