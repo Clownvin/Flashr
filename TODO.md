@@ -1,12 +1,15 @@
 # TODOs
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
     - MVP mode should be called "match"
+- [ ] Program Argument: Fields - which fields to test on
+- [ ] A way to mark cards as needing extra practice
 - [ ] Additional mode: "mixed" - Random mix of all (non-flash) modes
 - [ ] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
 - [ ] Repeat missed problems at end
 - [ ] Track missed problems, and retry them (like duolingo, stretch goal)
     - [ ] Track problem stats in a JSON
     - [ ] Pick problems such that lowest done occurs most commonly. Can be achieved by sorting by (times_occured - times_wrong) ascending, and filtering any that have been seen too recently as well (eg something like Min(problems.len(), 10) problems must occur before showing a problem again)
+    - [ ] Repeat problems indefinitely in a loop
 - [ ] Light mode/dark mode/contrast
 - [x] Show all face information at end (maybe only if missed)?
 - [x] Deck "faces", to describe which face is which (to support hiragana only + kanji decks together)
