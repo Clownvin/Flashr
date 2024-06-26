@@ -21,7 +21,7 @@ impl TerminalWrapper {
         })
     }
 
-    pub fn draw(&mut self, draw_fn: impl FnOnce(&mut Frame)) -> Result<(), FlashrError> {
+    pub fn _draw(&mut self, draw_fn: impl FnOnce(&mut Frame)) -> Result<(), FlashrError> {
         self.terminal.draw(draw_fn).map_err(UiError::IoError)?;
         Ok(())
     }
