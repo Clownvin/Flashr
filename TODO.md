@@ -1,5 +1,4 @@
 # TODOs
-- [ ] Mouse support
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
     - MVP mode should be called "match"
 - [ ] Program Argument: "fields" - which fields to test on
@@ -26,3 +25,4 @@
 - [x] Ability to close
 - [x] Show stats at end (%/# correct/incorrect, etc)
 - [x] Refresh on resize
+- [x] Mouse support
