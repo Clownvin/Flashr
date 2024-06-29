@@ -1,11 +1,12 @@
 use alt_screen::AltScreen;
+use mouse_capture::MouseCapture;
 use ratatui::{backend::CrosstermBackend, widgets::Widget, Frame, Terminal};
 use raw_mode::RawMode;
 
 use crate::{FlashrError, UiError};
 
 pub struct TerminalWrapper {
-    _alt_screen: AltScreen,
+    _mouse_capture: MouseCapture,
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
 }
 
@@ -13,10 +14,11 @@ impl TerminalWrapper {
     pub fn new() -> Result<TerminalWrapper, std::io::Error> {
         let raw_mode = RawMode::enable()?;
         let alt_screen = AltScreen::enter(raw_mode)?;
+        let mouse_capture = MouseCapture::enable(alt_screen)?;
         let terminal = Terminal::new(CrosstermBackend::new(std::io::stdout()))?;
 
         Ok(TerminalWrapper {
-            _alt_screen: alt_screen,
+            _mouse_capture: mouse_capture,
             terminal,
         })
     }
@@ -51,7 +53,7 @@ mod raw_mode {
 
     impl Drop for RawMode {
         fn drop(&mut self) {
-            disable_raw_mode().unwrap();
+            let _ = disable_raw_mode();
         }
     }
 
@@ -92,15 +94,39 @@ mod alt_screen {
     pub struct AltScreen(RawMode);
 
     impl AltScreen {
-        pub fn enter(raw_mode: RawMode) -> Result<AltScreen, std::io::Error> {
+        pub fn enter(raw_mode: RawMode) -> Result<Self, std::io::Error> {
             std::io::stdout().execute(EnterAlternateScreen)?;
-            Ok(AltScreen(raw_mode))
+            Ok(Self(raw_mode))
         }
     }
 
     impl Drop for AltScreen {
         fn drop(&mut self) {
-            std::io::stdout().execute(LeaveAlternateScreen).unwrap();
+            let _ = std::io::stdout().execute(LeaveAlternateScreen);
+        }
+    }
+}
+
+mod mouse_capture {
+    use crossterm::{
+        event::{DisableMouseCapture, EnableMouseCapture},
+        ExecutableCommand,
+    };
+
+    use super::alt_screen::AltScreen;
+
+    pub struct MouseCapture(AltScreen);
+
+    impl MouseCapture {
+        pub fn enable(alt_screen: AltScreen) -> Result<Self, std::io::Error> {
+            std::io::stdout().execute(EnableMouseCapture)?;
+            Ok(Self(alt_screen))
+        }
+    }
+
+    impl Drop for MouseCapture {
+        fn drop(&mut self) {
+            let _ = std::io::stdout().execute(DisableMouseCapture);
         }
     }
 }
