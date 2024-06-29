@@ -1,9 +1,9 @@
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Stylize},
-    widgets::{Block, BorderType, Gauge, Paragraph, Widget, Wrap},
+    widgets::{Block, BorderType, Gauge, Paragraph, StatefulWidget, Widget, Wrap},
 };
 
 use crate::{
@@ -202,9 +202,27 @@ struct MatchProblemWidget<'decks, 'suite> {
     answer: Option<(usize, bool)>,
 }
 
-impl Widget for MatchProblemWidget<'_, '_> {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
-    where
+struct MatchProblemWidgetState {
+    answer_areas: Vec<Rect>,
+}
+
+impl Default for MatchProblemWidgetState {
+    fn default() -> Self {
+        Self {
+            answer_areas: [Rect::default()].repeat(4),
+        }
+    }
+}
+
+impl StatefulWidget for MatchProblemWidget<'_, '_> {
+    type State = MatchProblemWidgetState;
+
+    fn render(
+        self,
+        area: ratatui::prelude::Rect,
+        buf: &mut ratatui::prelude::Buffer,
+        state: &mut Self::State,
+    ) where
         Self: Sized,
     {
         let layout = Layout::new(
@@ -230,6 +248,7 @@ impl Widget for MatchProblemWidget<'_, '_> {
 
         let question = self.problem.question.0;
 
+        //TODO: Need refactor to DRY. Had to debug silly issue already
         match self.answer {
             None => {
                 Paragraph::new(question.clone())
@@ -238,16 +257,19 @@ impl Widget for MatchProblemWidget<'_, '_> {
                     .block(Block::bordered().border_type(BorderType::Double))
                     .render(question_area, buf);
                 self.problem.answers.iter().enumerate().for_each(
-                    |(i, ((answer, _answer_card), _))| {
-                        Paragraph::new(format!("{}: {}", i + 1, answer))
+                    |(answer_index, ((answer, _answer_card), _))| {
+                        let answer_area = answer_areas[answer_index];
+                        state.answer_areas[answer_index] = answer_area;
+
+                        Paragraph::new(format!("{}: {}", answer_index + 1, answer))
                             .wrap(Wrap { trim: false })
                             .alignment(Alignment::Center)
                             .block(Block::bordered().border_type(BorderType::Double))
-                            .render(answer_areas[i], buf)
+                            .render(answer_area, buf)
                     },
                 );
             }
-            Some((index_answered, correct)) => {
+            Some((answered_index, correct)) => {
                 Paragraph::new(question.clone())
                     .wrap(Wrap { trim: false })
                     .alignment(Alignment::Center)
@@ -256,23 +278,24 @@ impl Widget for MatchProblemWidget<'_, '_> {
                     .render(question_area, buf);
 
                 self.problem.answers.iter().enumerate().for_each(
-                    |(index_problem, ((_, card_answer), is_correct))| {
-                        let is_answered = index_problem == index_answered;
+                    |(answer_index, ((_, card_answer), is_correct))| {
+                        let is_answered = answer_index == answered_index;
+                        let answer_area = answer_areas[answer_index];
 
-                        Paragraph::new(
-                            format!("{}: {}", index_problem + 1, card_answer.join("\n"),),
-                        )
-                        .wrap(Wrap { trim: false })
-                        .alignment(Alignment::Center)
-                        .block(Block::bordered().border_type(BorderType::Double))
-                        .fg(if *is_correct {
-                            Color::Green
-                        } else if is_answered {
-                            Color::Red
-                        } else {
-                            Color::Gray
-                        })
-                        .render(answer_areas[index_problem], buf)
+                        state.answer_areas[answer_index] = answer_area;
+
+                        Paragraph::new(format!("{}: {}", answer_index + 1, card_answer.join("\n"),))
+                            .wrap(Wrap { trim: false })
+                            .alignment(Alignment::Center)
+                            .block(Block::bordered().border_type(BorderType::Double))
+                            .fg(if *is_correct {
+                                Color::Green
+                            } else if is_answered {
+                                Color::Red
+                            } else {
+                                Color::Gray
+                            })
+                            .render(answer_area, buf)
                     },
                 );
             }
@@ -290,26 +313,33 @@ fn show_match_problem(
     progress: f64,
 ) -> Result<ProblemResult, FlashrError> {
     let problem = &problem;
+    let mut widget_state = MatchProblemWidgetState::default();
 
     loop {
-        term.render_widget(MatchProblemWidget {
-            problem,
-            progress,
-            answer: None,
-        })?;
+        term.render_stateful_widget(
+            MatchProblemWidget {
+                problem,
+                progress,
+                answer: None,
+            },
+            &mut widget_state,
+        )?;
 
-        match clear_and_match_event(match_match_input)? {
+        match clear_and_match_event(|event| match_match_input(event, &widget_state))? {
             UserInput::Answer(answered) => {
                 let correct = answered == problem.index_answer_correct;
 
                 loop {
-                    term.render_widget(MatchProblemWidget {
-                        problem,
-                        progress,
-                        answer: Some((answered, correct)),
-                    })?;
+                    term.render_stateful_widget(
+                        MatchProblemWidget {
+                            problem,
+                            progress,
+                            answer: Some((answered, correct)),
+                        },
+                        &mut widget_state,
+                    )?;
 
-                    match clear_and_match_event(match_match_input)? {
+                    match clear_and_match_event(|event| match_match_input(event, &widget_state))? {
                         UserInput::Answer(answer) => {
                             if answer == problem.index_answer_correct {
                                 break;
@@ -332,7 +362,7 @@ fn show_match_problem(
     }
 }
 
-fn match_match_input(event: Event) -> Option<UserInput> {
+fn match_match_input(event: Event, state: &MatchProblemWidgetState) -> Option<UserInput> {
     match event {
         Event::Key(KeyEvent {
             kind: KeyEventKind::Press,
@@ -347,6 +377,17 @@ fn match_match_input(event: Event) -> Option<UserInput> {
             _ => None,
         },
         Event::Resize(_, _) => Some(UserInput::Resize),
+        Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Up(_),
+            column,
+            row,
+            ..
+        }) => state
+            .answer_areas
+            .iter()
+            .enumerate()
+            .find(|(_, area)| area.contains((column, row).into()))
+            .map(|(index, _)| UserInput::Answer(index)),
         _ => None,
     }
 }

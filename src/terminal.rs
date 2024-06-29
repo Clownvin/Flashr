@@ -1,6 +1,10 @@
 use alt_screen::AltScreen;
 use mouse_capture::MouseCapture;
-use ratatui::{backend::CrosstermBackend, widgets::Widget, Frame, Terminal};
+use ratatui::{
+    backend::CrosstermBackend,
+    widgets::{StatefulWidget, Widget},
+    Frame, Terminal,
+};
 use raw_mode::RawMode;
 
 use crate::{FlashrError, UiError};
@@ -23,16 +27,21 @@ impl TerminalWrapper {
         })
     }
 
-    pub fn _draw(&mut self, draw_fn: impl FnOnce(&mut Frame)) -> Result<(), FlashrError> {
+    pub fn draw(&mut self, draw_fn: impl FnOnce(&mut Frame)) -> Result<(), FlashrError> {
         self.terminal.draw(draw_fn).map_err(UiError::IoError)?;
         Ok(())
     }
 
-    pub fn render_widget(&mut self, widget: impl Widget) -> Result<(), FlashrError> {
-        self.terminal
-            .draw(|frame| frame.render_widget(widget, frame.size()))
-            .map_err(UiError::IoError)?;
-        Ok(())
+    pub fn _render_widget(&mut self, widget: impl Widget) -> Result<(), FlashrError> {
+        self.draw(|frame| frame.render_widget(widget, frame.size()))
+    }
+
+    pub fn render_stateful_widget<W: StatefulWidget>(
+        &mut self,
+        widget: W,
+        state: &mut W::State,
+    ) -> Result<(), FlashrError> {
+        self.draw(|frame| frame.render_stateful_widget(widget, frame.size(), state))
     }
 }
 
