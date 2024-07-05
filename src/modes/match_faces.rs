@@ -292,7 +292,7 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
 
                         let is_answered = answer_index == answered_index;
                         MatchAnswerWidget {
-                            answer: format!("{}: {}", answer_index + 1, card_answer.join("\n")),
+                            answer: card_answer.join("\n"),
                             answer_index,
                             answered: Some((*is_correct, is_answered)),
                         }
