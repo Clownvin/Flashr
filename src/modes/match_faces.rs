@@ -3,7 +3,15 @@ use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Stylize},
-    widgets::{Block, BorderType, Gauge, Paragraph, StatefulWidget, Widget, Wrap},
+    symbols::{
+        border,
+        line::{
+            DOUBLE_BOTTOM_LEFT, DOUBLE_BOTTOM_RIGHT, DOUBLE_CROSS, DOUBLE_HORIZONTAL,
+            DOUBLE_HORIZONTAL_DOWN, DOUBLE_HORIZONTAL_UP, DOUBLE_VERTICAL, DOUBLE_VERTICAL_LEFT,
+            DOUBLE_VERTICAL_RIGHT,
+        },
+    },
+    widgets::{Block, Borders, Gauge, Paragraph, StatefulWidget, Widget, Wrap},
 };
 
 use crate::{
@@ -254,18 +262,19 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
                 Paragraph::new(question.clone())
                     .wrap(Wrap { trim: false })
                     .alignment(Alignment::Center)
-                    .block(Block::bordered().border_type(BorderType::Double))
                     .render(question_area, buf);
+
                 self.problem.answers.iter().enumerate().for_each(
                     |(answer_index, ((answer, _answer_card), _))| {
                         let answer_area = answer_areas[answer_index];
                         state.answer_areas[answer_index] = answer_area;
 
-                        Paragraph::new(format!("{}: {}", answer_index + 1, answer))
-                            .wrap(Wrap { trim: false })
-                            .alignment(Alignment::Center)
-                            .block(Block::bordered().border_type(BorderType::Double))
-                            .render(answer_area, buf)
+                        MatchAnswerWidget {
+                            answer: answer.to_string(),
+                            answer_index,
+                            answered: None,
+                        }
+                        .render(answer_area, buf)
                     },
                 );
             }
@@ -273,29 +282,21 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
                 Paragraph::new(question.clone())
                     .wrap(Wrap { trim: false })
                     .alignment(Alignment::Center)
-                    .block(Block::bordered().border_type(BorderType::Double))
                     .fg(if correct { Color::Green } else { Color::Red })
                     .render(question_area, buf);
 
                 self.problem.answers.iter().enumerate().for_each(
                     |(answer_index, ((_, card_answer), is_correct))| {
-                        let is_answered = answer_index == answered_index;
                         let answer_area = answer_areas[answer_index];
-
                         state.answer_areas[answer_index] = answer_area;
 
-                        Paragraph::new(format!("{}: {}", answer_index + 1, card_answer.join("\n"),))
-                            .wrap(Wrap { trim: false })
-                            .alignment(Alignment::Center)
-                            .block(Block::bordered().border_type(BorderType::Double))
-                            .fg(if *is_correct {
-                                Color::Green
-                            } else if is_answered {
-                                Color::Red
-                            } else {
-                                Color::Gray
-                            })
-                            .render(answer_area, buf)
+                        let is_answered = answer_index == answered_index;
+                        MatchAnswerWidget {
+                            answer: format!("{}: {}", answer_index + 1, card_answer.join("\n")),
+                            answer_index,
+                            answered: Some((*is_correct, is_answered)),
+                        }
+                        .render(answer_area, buf)
                     },
                 );
             }
@@ -304,6 +305,64 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
         Gauge::default()
             .percent((self.progress * 100.0) as u16)
             .render(progress_area, buf);
+    }
+}
+
+struct MatchAnswerWidget {
+    answer: String,
+    answer_index: usize,
+    answered: Option<(bool, bool)>,
+}
+
+impl Widget for MatchAnswerWidget {
+    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer) {
+        let top_row = self.answer_index < 2;
+        let left_side = self.answer_index % 2 == 0;
+
+        Paragraph::new(format!("{}: {}", self.answer_index + 1, self.answer))
+            .wrap(Wrap { trim: false })
+            .alignment(Alignment::Center)
+            .block(
+                Block::bordered()
+                    .borders({
+                        let mut borders = Borders::TOP;
+                        if left_side {
+                            borders |= Borders::RIGHT;
+                        }
+                        borders
+                    })
+                    .border_set(border::Set {
+                        bottom_right: if !left_side {
+                            DOUBLE_BOTTOM_RIGHT
+                        } else {
+                            DOUBLE_HORIZONTAL_UP
+                        },
+                        bottom_left: DOUBLE_BOTTOM_LEFT,
+                        top_left: DOUBLE_VERTICAL_RIGHT,
+                        top_right: if top_row && left_side {
+                            DOUBLE_HORIZONTAL_DOWN
+                        } else if !left_side {
+                            DOUBLE_VERTICAL_LEFT
+                        } else {
+                            DOUBLE_CROSS
+                        },
+                        vertical_left: DOUBLE_VERTICAL,
+                        vertical_right: DOUBLE_VERTICAL,
+                        horizontal_top: DOUBLE_HORIZONTAL,
+                        horizontal_bottom: DOUBLE_HORIZONTAL,
+                    }),
+            )
+            .fg(match self.answered {
+                None | Some((false, false)) => Color::default(),
+                Some((is_correct, _)) => {
+                    if is_correct {
+                        Color::Green
+                    } else {
+                        Color::Red
+                    }
+                }
+            })
+            .render(area, buf)
     }
 }
 
