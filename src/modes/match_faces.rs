@@ -189,18 +189,20 @@ fn get_match_problems_for_deck_face<'decks>(
 
     let problems_for_face = deck.cards.iter().try_fold(
         Vec::with_capacity(deck.cards.len()),
-        |mut problems, card| {
+        |mut problems, problem_card| {
             let (answer_face_index, answer_cards) =
                 &answers_possible[rng.gen_range(0..answers_possible.len())];
 
-            let mut seen = vec![&card[*answer_face_index]];
+            let mut seen = vec![&problem_card[*answer_face_index]];
             let mut answers = answer_cards
                 .clone()
                 //NOTE: Shuffling here as well so that the filter isn't deterministic
                 //Otherwise, it would always filter out answers that appear later
                 .iter_shuffled(rng)
-                .filter(|(answer, _answer_card)| {
-                    if seen.contains(answer) {
+                .filter(|(answer, answer_card)| {
+                    if seen.contains(answer)
+                        || answer_card[problem_face_index] == problem_card[problem_face_index]
+                    {
                         false
                     } else {
                         seen.push(answer);
@@ -209,13 +211,16 @@ fn get_match_problems_for_deck_face<'decks>(
                 })
                 .take(3)
                 .map(|answer_and_card| (answer_and_card, false))
-                .chain(std::iter::once(((&card[*answer_face_index], card), true)))
+                .chain(std::iter::once((
+                    (&problem_card[*answer_face_index], problem_card),
+                    true,
+                )))
                 .collect::<Vec<_>>();
 
             if answers.len() < 4 {
                 return Err(FlashrError::DeckMismatchError(format!(
                     "Not enough answers for card face \"{}\", using answer face \"{}\"",
-                    card[problem_face_index], deck.faces[*answer_face_index]
+                    problem_card[problem_face_index], deck.faces[*answer_face_index]
                 )));
             }
 
@@ -229,7 +234,7 @@ fn get_match_problems_for_deck_face<'decks>(
                 .unwrap();
 
             problems.push(MatchProblem {
-                question: (&card[problem_face_index], card),
+                question: (&problem_card[problem_face_index], problem_card),
                 answers,
                 index_answer_correct,
             });
