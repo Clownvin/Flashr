@@ -1,5 +1,5 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
-use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
+use rand::{prelude::SliceRandom, rngs::ThreadRng, Rng};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Stylize},
@@ -25,12 +25,13 @@ pub fn match_cards(
     term: &mut TerminalWrapper,
     decks: Vec<Deck>,
 ) -> Result<(usize, usize), FlashrError> {
-    let suite = get_match_problem_suite(&decks)?;
+    let rng = &mut rand::thread_rng();
+    let suite = get_match_problem_suite(rng, &decks)?;
 
-    let total_problems = suite.problems.len();
+    let total_problems = suite.problems.remaining();
     let mut total_correct = 0;
 
-    for (i, problem) in suite.problems.into_iter().enumerate() {
+    for (i, problem) in suite.problems.enumerate() {
         let result = show_match_problem(term, problem, i as f64 / total_problems as f64)?;
 
         match result {
@@ -43,8 +44,8 @@ pub fn match_cards(
     Ok((total_correct, total_problems))
 }
 
-struct MatchProblemSuite<'suite> {
-    problems: Vec<MatchProblem<'suite>>,
+struct MatchProblemSuite<'rng, 'decks> {
+    problems: ShuffleIter<'rng, MatchProblem<'decks>>,
 }
 
 struct MatchProblem<'suite> {
@@ -55,25 +56,66 @@ struct MatchProblem<'suite> {
 
 type FaceAndCard<'suite> = (&'suite String, &'suite Card);
 
-fn get_match_problem_suite(decks: &[Deck]) -> Result<MatchProblemSuite, FlashrError> {
+trait IterShuffled<'rng> {
+    type Item;
+
+    fn iter_shuffled(self, rng: &'rng mut ThreadRng) -> ShuffleIter<'rng, Self::Item>;
+}
+
+struct ShuffleIter<'rng, T> {
+    values: Vec<T>,
+    rng: &'rng mut ThreadRng,
+}
+
+impl<T> Iterator for ShuffleIter<'_, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.values.len() {
+            0 => None,
+            1 => Some(self.values.swap_remove(0)),
+            r => Some(self.values.swap_remove(self.rng.gen_range(0..r))),
+        }
+    }
+}
+
+impl<'rng, T> ShuffleIter<'rng, T> {
+    fn remaining(&self) -> usize {
+        self.values.len()
+    }
+}
+
+impl<'rng, T> IterShuffled<'rng> for Vec<T> {
+    type Item = T;
+
+    fn iter_shuffled(self, rng: &'rng mut ThreadRng) -> ShuffleIter<'rng, Self::Item> {
+        ShuffleIter { values: self, rng }
+    }
+}
+
+fn get_match_problem_suite<'rng, 'decks>(
+    rng: &'rng mut ThreadRng,
+    decks: &'decks [Deck],
+) -> Result<MatchProblemSuite<'rng, 'decks>, FlashrError> {
     if decks.is_empty() {
         return Err(FlashrError::DeckMismatchError("No decks provided".into()));
     }
 
-    let rng = &mut rand::thread_rng();
+    let problem_count = decks.iter().fold(0, |total, deck| {
+        total + (deck.cards.len() * deck.faces.len())
+    });
 
-    let mut problems = decks.iter().try_fold(
-        Vec::with_capacity(decks.iter().fold(0, |total, deck| {
-            total + (deck.cards.len() * deck.faces.len())
-        })),
-        |mut problems, deck| -> Result<_, FlashrError> {
-            let deck_problems = get_match_problems_for_deck(deck, decks, rng)?;
-            problems.extend(deck_problems);
-            Ok(problems)
-        },
-    )?;
-
-    problems.shuffle(rng);
+    let problems = decks
+        .iter()
+        .try_fold(
+            Vec::with_capacity(problem_count),
+            |mut problems, deck| -> Result<_, FlashrError> {
+                let deck_problems = get_match_problems_for_deck(deck, decks, rng)?;
+                problems.extend(deck_problems);
+                Ok(problems)
+            },
+        )?
+        .iter_shuffled(rng);
 
     Ok(MatchProblemSuite { problems })
 }
@@ -151,14 +193,12 @@ fn get_match_problems_for_deck_face<'decks>(
             let (answer_face_index, answer_cards) =
                 &answers_possible[rng.gen_range(0..answers_possible.len())];
 
-            //NOTE: Shuffling here as well so that the filter isn't deterministic
-            //Otherwise, it would always filter out answers that appear later
-            let mut answer_cards = answer_cards.clone();
-            answer_cards.shuffle(rng);
-
             let mut seen = vec![&card[*answer_face_index]];
             let mut answers = answer_cards
-                .into_iter()
+                .clone()
+                //NOTE: Shuffling here as well so that the filter isn't deterministic
+                //Otherwise, it would always filter out answers that appear later
+                .iter_shuffled(rng)
                 .filter(|(answer, _answer_card)| {
                     if seen.contains(answer) {
                         false
@@ -169,18 +209,16 @@ fn get_match_problems_for_deck_face<'decks>(
                 })
                 .take(3)
                 .map(|answer_and_card| (answer_and_card, false))
+                .chain(std::iter::once(((&card[*answer_face_index], card), true)))
                 .collect::<Vec<_>>();
 
-            if answers.len() < 3 {
+            if answers.len() < 4 {
                 return Err(FlashrError::DeckMismatchError(format!(
                     "Not enough answers for card face \"{}\", using answer face \"{}\"",
                     card[problem_face_index], deck.faces[*answer_face_index]
                 )));
             }
 
-            let correct_answer = &card[*answer_face_index];
-
-            answers.push(((correct_answer, card), true));
             answers.shuffle(rng);
 
             let index_answer_correct = answers
