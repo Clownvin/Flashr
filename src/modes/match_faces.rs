@@ -3,14 +3,7 @@ use rand::{prelude::SliceRandom, rngs::ThreadRng, Rng};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Stylize},
-    symbols::{
-        border,
-        line::{
-            DOUBLE_BOTTOM_LEFT, DOUBLE_BOTTOM_RIGHT, DOUBLE_CROSS, DOUBLE_HORIZONTAL,
-            DOUBLE_HORIZONTAL_DOWN, DOUBLE_HORIZONTAL_UP, DOUBLE_VERTICAL, DOUBLE_VERTICAL_LEFT,
-            DOUBLE_VERTICAL_RIGHT,
-        },
-    },
+    symbols::{border, line},
     widgets::{Block, Borders, Gauge, Paragraph, StatefulWidget, Widget, Wrap},
 };
 
@@ -423,23 +416,23 @@ impl Widget for MatchAnswerWidget {
                     })
                     .border_set(border::Set {
                         bottom_right: if !left_side {
-                            DOUBLE_BOTTOM_RIGHT
+                            line::DOUBLE_BOTTOM_RIGHT
                         } else {
-                            DOUBLE_HORIZONTAL_UP
+                            line::DOUBLE_HORIZONTAL_UP
                         },
-                        bottom_left: DOUBLE_BOTTOM_LEFT,
-                        top_left: DOUBLE_VERTICAL_RIGHT,
+                        bottom_left: line::DOUBLE_BOTTOM_LEFT,
+                        top_left: line::DOUBLE_VERTICAL_RIGHT,
                         top_right: if top_row && left_side {
-                            DOUBLE_HORIZONTAL_DOWN
+                            line::DOUBLE_HORIZONTAL_DOWN
                         } else if !left_side {
-                            DOUBLE_VERTICAL_LEFT
+                            line::DOUBLE_VERTICAL_LEFT
                         } else {
-                            DOUBLE_CROSS
+                            line::DOUBLE_CROSS
                         },
-                        vertical_left: DOUBLE_VERTICAL,
-                        vertical_right: DOUBLE_VERTICAL,
-                        horizontal_top: DOUBLE_HORIZONTAL,
-                        horizontal_bottom: DOUBLE_HORIZONTAL,
+                        vertical_left: line::DOUBLE_VERTICAL,
+                        vertical_right: line::DOUBLE_VERTICAL,
+                        horizontal_top: line::DOUBLE_HORIZONTAL,
+                        horizontal_bottom: line::DOUBLE_HORIZONTAL,
                     }),
             )
             .fg(match self.outcome {
