@@ -1,7 +1,7 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
 use rand::{prelude::SliceRandom, rngs::ThreadRng, Rng};
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Stylize},
     symbols::{
         border,
@@ -325,7 +325,7 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
             None => {
                 Paragraph::new(question.clone())
                     .wrap(Wrap { trim: false })
-                    .alignment(Alignment::Center)
+                    .centered()
                     .render(question_area, buf);
 
                 self.problem.answers.iter().enumerate().for_each(
@@ -345,7 +345,7 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
             Some((answered_index, correct)) => {
                 Paragraph::new(question.clone())
                     .wrap(Wrap { trim: false })
-                    .alignment(Alignment::Center)
+                    .centered()
                     .fg(if correct { Color::Green } else { Color::Red })
                     .render(question_area, buf);
 
@@ -385,7 +385,7 @@ impl Widget for MatchAnswerWidget {
 
         Paragraph::new(format!("{}: {}", self.answer_index + 1, self.answer))
             .wrap(Wrap { trim: false })
-            .alignment(Alignment::Center)
+            .centered()
             .block(
                 Block::bordered()
                     .borders({
