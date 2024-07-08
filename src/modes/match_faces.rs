@@ -187,6 +187,13 @@ fn get_match_problems_for_deck_face<'decks>(
         ));
     }
 
+    //NB: Converting to refs to ideally make the Vec::clone faster
+    //TODO: Needs test/benchmark to prove faster.
+    let answers_possible = answers_possible
+        .iter()
+        .map(|(answer_face_index, cards)| (*answer_face_index, cards.iter().collect::<Vec<_>>()))
+        .collect::<Vec<_>>();
+
     let problems_for_face = deck.cards.iter().try_fold(
         Vec::with_capacity(deck.cards.len()),
         |mut problems, problem_card| {
@@ -201,6 +208,7 @@ fn get_match_problems_for_deck_face<'decks>(
                 .iter_shuffled(rng)
                 .filter(|(answer, answer_card)| {
                     if seen.contains(answer)
+                        //TODO: Needs test case to prove works
                         || answer_card[problem_face_index] == problem_card[problem_face_index]
                     {
                         false
@@ -210,7 +218,7 @@ fn get_match_problems_for_deck_face<'decks>(
                     }
                 })
                 .take(3)
-                .map(|answer_and_card| (answer_and_card, false))
+                .map(|answer_and_card| (*answer_and_card, false))
                 .chain(std::iter::once((
                     (&problem_card[*answer_face_index], problem_card),
                     true,
