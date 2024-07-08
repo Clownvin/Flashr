@@ -115,9 +115,10 @@ fn get_match_problem_suite<'rng, 'decks>(
         return Err(FlashrError::DeckMismatchError("No decks provided".into()));
     }
 
-    let problem_count = decks.iter().fold(0, |total, deck| {
-        total + (deck.cards.len() * deck.faces.len())
-    });
+    let problem_count = decks
+        .iter()
+        .map(|deck| deck.cards.len() * deck.faces.len())
+        .fold(0, usize::saturating_add);
 
     let problems = decks
         .iter()
@@ -171,7 +172,7 @@ fn get_match_problems_for_deck_face<'decks>(
         .enumerate()
         .filter(|(answer_face_index, _answer_face)| *answer_face_index != problem_face_index);
 
-    let answers_possible = faces_possible
+    let answers_faces_possible = faces_possible
         .map(|(answer_face_index, answer_face)| {
             let decks_with_face = decks.iter().filter_map(|deck| {
                 deck.faces
@@ -194,7 +195,7 @@ fn get_match_problems_for_deck_face<'decks>(
         .filter(|(_answer_face_index, cards)| cards.len() > 3)
         .collect::<Vec<_>>();
 
-    if answers_possible.is_empty() {
+    if answers_faces_possible.is_empty() {
         let deck_name = &deck.name;
         return Err(FlashrError::DeckMismatchError(
             format!("Unable to find enough possible answers for the \"{problem_face}\" face of the \"{deck_name}\" deck"),
@@ -203,7 +204,7 @@ fn get_match_problems_for_deck_face<'decks>(
 
     //NB: Converting to refs to ideally make the Vec::clone faster
     //TODO: Needs test/benchmark to prove faster.
-    let answers_possible = answers_possible
+    let answers_faces_possible = answers_faces_possible
         .iter()
         .map(|(answer_face_index, cards)| (*answer_face_index, cards.iter().collect::<Vec<_>>()))
         .collect::<Vec<_>>();
@@ -211,7 +212,7 @@ fn get_match_problems_for_deck_face<'decks>(
     let problems_for_face = deck.cards.iter().try_fold(
         Vec::with_capacity(deck.cards.len()),
         |mut problems, problem_card| {
-            let (answer_face_index, answer_cards) = answers_possible.get_random(rng);
+            let (answer_face_index, answer_cards) = answers_faces_possible.get_random(rng);
 
             let mut seen = vec![&problem_card[*answer_face_index]];
             let mut answers = answer_cards
@@ -239,9 +240,11 @@ fn get_match_problems_for_deck_face<'decks>(
                 .collect::<Vec<_>>();
 
             if answers.len() < 4 {
+                let card_face_problem = &problem_card[problem_face_index];
+                let deck_face_answer = &deck.faces[*answer_face_index];
+
                 return Err(FlashrError::DeckMismatchError(format!(
-                    "Not enough answers for card face \"{}\", using answer face \"{}\"",
-                    problem_card[problem_face_index], deck.faces[*answer_face_index]
+                    "Not enough answers for card face \"{card_face_problem}\", using answer face \"{deck_face_answer}\""
                 )));
             }
 
@@ -272,6 +275,21 @@ struct MatchProblemWidget<'decks, 'suite> {
     problem: &'suite MatchProblem<'decks>,
     progress: f64,
     answer: Option<(usize, bool)>,
+}
+
+impl<'suite> MatchProblemWidget<'suite, '_> {
+    fn new(problem: &'suite MatchProblem<'_>, progress: f64) -> Self {
+        Self {
+            problem,
+            progress,
+            answer: None,
+        }
+    }
+
+    fn answered(mut self, answer: (usize, bool)) -> Self {
+        self.answer = Some(answer);
+        self
+    }
 }
 
 struct MatchProblemWidgetState {
@@ -333,12 +351,8 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
                         let answer_area = answer_areas[answer_index];
                         state.answer_areas[answer_index] = answer_area;
 
-                        MatchAnswerWidget {
-                            answer: answer.to_string(),
-                            answer_index,
-                            answered: None,
-                        }
-                        .render(answer_area, buf)
+                        MatchAnswerWidget::new(answer.to_string(), answer_index)
+                            .render(answer_area, buf)
                     },
                 );
             }
@@ -355,12 +369,9 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
                         state.answer_areas[answer_index] = answer_area;
 
                         let is_answered = answer_index == answered_index;
-                        MatchAnswerWidget {
-                            answer: card_answer.join("\n"),
-                            answer_index,
-                            answered: Some((*is_correct, is_answered)),
-                        }
-                        .render(answer_area, buf)
+                        MatchAnswerWidget::new(card_answer.join("\n"), answer_index)
+                            .answered((*is_correct, is_answered))
+                            .render(answer_area, buf)
                     },
                 );
             }
@@ -375,7 +386,22 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
 struct MatchAnswerWidget {
     answer: String,
     answer_index: usize,
-    answered: Option<(bool, bool)>,
+    outcome: Option<(bool, bool)>,
+}
+
+impl MatchAnswerWidget {
+    fn new(answer: String, answer_index: usize) -> Self {
+        Self {
+            answer,
+            answer_index,
+            outcome: None,
+        }
+    }
+
+    fn answered(mut self, outcome: (bool, bool)) -> Self {
+        self.outcome = Some(outcome);
+        self
+    }
 }
 
 impl Widget for MatchAnswerWidget {
@@ -416,7 +442,7 @@ impl Widget for MatchAnswerWidget {
                         horizontal_bottom: DOUBLE_HORIZONTAL,
                     }),
             )
-            .fg(match self.answered {
+            .fg(match self.outcome {
                 None | Some((false, false)) => Color::default(),
                 Some((is_correct, _)) => {
                     if is_correct {
@@ -436,33 +462,23 @@ fn show_match_problem(
     progress: f64,
 ) -> Result<ProblemResult, FlashrError> {
     let problem = &problem;
-    let mut widget_state = MatchProblemWidgetState::default();
+    let widget_state = &mut MatchProblemWidgetState::default();
 
     loop {
-        term.render_stateful_widget(
-            MatchProblemWidget {
-                problem,
-                progress,
-                answer: None,
-            },
-            &mut widget_state,
-        )?;
+        term.render_stateful_widget(MatchProblemWidget::new(problem, progress), widget_state)?;
 
-        match clear_and_match_event(|event| match_match_input(event, &widget_state))? {
-            UserInput::Answer(answered) => {
-                let correct = answered == problem.index_answer_correct;
+        match clear_and_match_event(|event| match_match_input(event, widget_state))? {
+            UserInput::Answer(index_answered) => {
+                let correct = index_answered == problem.index_answer_correct;
 
                 loop {
                     term.render_stateful_widget(
-                        MatchProblemWidget {
-                            problem,
-                            progress,
-                            answer: Some((answered, correct)),
-                        },
-                        &mut widget_state,
+                        MatchProblemWidget::new(problem, progress)
+                            .answered((index_answered, correct)),
+                        widget_state,
                     )?;
 
-                    match clear_and_match_event(|event| match_match_input(event, &widget_state))? {
+                    match clear_and_match_event(|event| match_match_input(event, widget_state))? {
                         UserInput::Answer(answer) => {
                             if answer == problem.index_answer_correct {
                                 break;
