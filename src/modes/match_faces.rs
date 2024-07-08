@@ -93,6 +93,20 @@ impl<'rng, T> IterShuffled<'rng> for Vec<T> {
     }
 }
 
+trait GetRandom {
+    type Item;
+
+    fn get_random(&self, rng: &mut ThreadRng) -> &'_ Self::Item;
+}
+
+impl<T> GetRandom for Vec<T> {
+    type Item = T;
+
+    fn get_random(&self, rng: &mut ThreadRng) -> &'_ Self::Item {
+        &self[rng.gen_range(0..self.len())]
+    }
+}
+
 fn get_match_problem_suite<'rng, 'decks>(
     rng: &'rng mut ThreadRng,
     decks: &'decks [Deck],
@@ -197,8 +211,7 @@ fn get_match_problems_for_deck_face<'decks>(
     let problems_for_face = deck.cards.iter().try_fold(
         Vec::with_capacity(deck.cards.len()),
         |mut problems, problem_card| {
-            let (answer_face_index, answer_cards) =
-                &answers_possible[rng.gen_range(0..answers_possible.len())];
+            let (answer_face_index, answer_cards) = answers_possible.get_random(rng);
 
             let mut seen = vec![&problem_card[*answer_face_index]];
             let mut answers = answer_cards
