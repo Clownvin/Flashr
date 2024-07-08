@@ -111,7 +111,7 @@ fn get_match_problem_suite<'rng, 'decks>(
     let problem_count = decks
         .iter()
         .map(|deck| deck.cards.len() * deck.faces.len())
-        .fold(0, usize::saturating_add);
+        .sum();
 
     let problems = decks
         .iter()
@@ -213,10 +213,12 @@ fn get_match_problems_for_deck_face<'decks>(
                 //NOTE: Shuffling here as well so that the filter isn't deterministic
                 //Otherwise, it would always filter out answers that appear later
                 .iter_shuffled(rng)
-                .filter(|(answer, answer_card)| {
+                .filter(|(answer, _answer_card)| {
                     if seen.contains(answer)
                         //TODO: Needs test case to prove works
-                        || answer_card[problem_face_index] == problem_card[problem_face_index]
+                        //NB: Two+ decks with different face count can error, still no proof that
+                        //this solves the issue
+                        // || answer_card[problem_face_index] == problem_card[problem_face_index]
                     {
                         false
                     } else {
@@ -270,8 +272,8 @@ struct MatchProblemWidget<'decks, 'suite> {
     answer: Option<(usize, bool)>,
 }
 
-impl<'suite> MatchProblemWidget<'suite, '_> {
-    fn new(problem: &'suite MatchProblem<'_>, progress: f64) -> Self {
+impl<'suite, 'decks> MatchProblemWidget<'suite, 'decks> {
+    fn new(problem: &'suite MatchProblem<'decks>, progress: f64) -> Self {
         Self {
             problem,
             progress,
