@@ -1,4 +1,10 @@
-use std::{fmt::Debug, fs, ops::Deref, path::PathBuf};
+use std::{
+    ffi::OsStr,
+    fmt::Debug,
+    fs,
+    ops::Deref,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -86,21 +92,27 @@ pub fn load_decks<P: Into<PathBuf> + Clone>(paths: Vec<P>) -> Result<Vec<Deck>, 
     paths
         .into_iter()
         .try_fold(Vec::with_capacity(len), |mut decks, path| {
-            decks.extend(load_decks_from_path(path)?);
+            decks.extend(load_decks_from_path(path)?.into_iter().flatten());
             Ok(decks)
         })
 }
 
-fn load_decks_from_path(path: impl Into<PathBuf> + Clone) -> Result<Vec<Deck>, DeckError> {
-    let metadata = std::fs::metadata(path.clone().into())?;
+fn load_decks_from_path(path: impl Into<PathBuf> + Clone) -> Result<Option<Vec<Deck>>, DeckError> {
+    let path = path.into();
+    let metadata = std::fs::metadata(&path)?;
 
     if metadata.is_dir() {
-        load_decks_from_dir(path)
+        load_decks_from_dir(path).map(Some)
+    } else if file_extension(&path).is_some_and(|ext| ext.to_lowercase() == "json") {
+        load_deck_from_file(path).map(|deck| Some(vec![deck]))
+    } else {
+        Ok(None)
     }
-    //NOTE: Making a possibly bold assumption that the only alternative is a file
-    else {
-        load_deck_from_file(path).map(|deck| vec![deck])
-    }
+}
+
+fn file_extension(path: &PathBuf) -> Option<&str> {
+    let path = Path::new(path);
+    path.extension().and_then(OsStr::to_str)
 }
 
 fn load_decks_from_dir(path: impl Into<PathBuf>) -> Result<Vec<Deck>, DeckError> {
@@ -113,7 +125,7 @@ fn load_decks_from_dir(path: impl Into<PathBuf>) -> Result<Vec<Deck>, DeckError>
     files
         .into_iter()
         .try_fold(Vec::with_capacity(len), |mut decks, file| {
-            decks.extend(load_decks_from_path(file.path())?);
+            decks.extend(load_decks_from_path(file.path())?.into_iter().flatten());
             Ok(decks)
         })
 }
