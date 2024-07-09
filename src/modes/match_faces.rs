@@ -24,7 +24,7 @@ pub fn match_cards(
     let total_problems = suite.problems.remaining();
     let mut total_correct = 0;
 
-    for (i, problem) in suite.problems.enumerate() {
+    for (i, ref problem) in suite.problems.enumerate() {
         let result = show_match_problem(term, problem, i as f64 / total_problems as f64)?;
 
         match result {
@@ -333,7 +333,6 @@ impl StatefulWidget for MatchProblemWidget<'_, '_> {
 
         let question = self.problem.question.0;
 
-        //TODO: Need refactor to DRY. Had to debug silly issue already
         match self.answer {
             None => {
                 Paragraph::new(question.clone())
@@ -453,10 +452,9 @@ impl Widget for MatchAnswerWidget {
 
 fn show_match_problem(
     term: &mut TerminalWrapper,
-    problem: MatchProblem,
+    problem: &MatchProblem,
     progress: f64,
 ) -> Result<ProblemResult, FlashrError> {
-    let problem = &problem;
     let widget_state = &mut MatchProblemWidgetState::default();
 
     loop {
@@ -464,35 +462,40 @@ fn show_match_problem(
 
         match clear_and_match_event(|event| match_match_input(event, widget_state))? {
             UserInput::Answer(index_answered) => {
-                let correct = index_answered == problem.index_answer_correct;
+                return show_match_problem_result(term, problem, progress, index_answered)
+            }
+            UserInput::Resize => continue,
+            UserInput::Quit => return Ok(ProblemResult::Quit),
+        }
+    }
+}
 
-                loop {
-                    term.render_stateful_widget(
-                        MatchProblemWidget::new(problem, progress)
-                            .answered((index_answered, correct)),
-                        widget_state,
-                    )?;
+fn show_match_problem_result(
+    term: &mut TerminalWrapper,
+    problem: &MatchProblem,
+    progress: f64,
+    index_answered: usize,
+) -> Result<ProblemResult, FlashrError> {
+    let correct = index_answered == problem.index_answer_correct;
+    let widget_state = &mut MatchProblemWidgetState::default();
 
-                    match clear_and_match_event(|event| match_match_input(event, widget_state))? {
-                        UserInput::Answer(answer) => {
-                            if answer == problem.index_answer_correct {
-                                break;
-                            }
-                        }
-                        UserInput::Resize => continue,
-                        UserInput::Quit => return Ok(ProblemResult::Quit),
-                    };
-                }
+    loop {
+        term.render_stateful_widget(
+            MatchProblemWidget::new(problem, progress).answered((index_answered, correct)),
+            widget_state,
+        )?;
 
+        match clear_and_match_event(|event| match_match_input(event, widget_state))? {
+            UserInput::Answer(answer) if answer == problem.index_answer_correct => {
                 return Ok(if correct {
                     ProblemResult::Correct
                 } else {
                     ProblemResult::Incorrect
-                });
+                })
             }
-            UserInput::Resize => continue,
+            UserInput::Answer(_) | UserInput::Resize => continue,
             UserInput::Quit => return Ok(ProblemResult::Quit),
-        };
+        }
     }
 }
 
