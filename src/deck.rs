@@ -60,8 +60,8 @@ impl Deref for Card {
 
 #[derive(Debug)]
 pub enum DeckError {
-    IoError(std::io::Error),
-    SerdeError(serde_json::Error),
+    IoError(PathBuf, std::io::Error),
+    SerdeError(PathBuf, serde_json::Error),
     NotEnoughFaces(Deck),
     NotEnoughCards(Deck),
     DuplicateFace(Deck, String),
@@ -72,18 +72,6 @@ pub enum DeckError {
 pub enum CardError {
     NotEnoughFaces(Card),
     TooManyFaces(Card),
-}
-
-impl From<std::io::Error> for DeckError {
-    fn from(err: std::io::Error) -> Self {
-        DeckError::IoError(err)
-    }
-}
-
-impl From<serde_json::Error> for DeckError {
-    fn from(err: serde_json::Error) -> Self {
-        DeckError::SerdeError(err)
-    }
 }
 
 pub fn load_decks<P: Into<PathBuf> + Clone>(paths: Vec<P>) -> Result<Vec<Deck>, DeckError> {
@@ -99,7 +87,7 @@ pub fn load_decks<P: Into<PathBuf> + Clone>(paths: Vec<P>) -> Result<Vec<Deck>, 
 
 fn load_decks_from_path(path: impl Into<PathBuf> + Clone) -> Result<Option<Vec<Deck>>, DeckError> {
     let path = path.into();
-    let metadata = std::fs::metadata(&path)?;
+    let metadata = std::fs::metadata(&path).map_err(|err| DeckError::IoError(path.clone(), err))?;
 
     if metadata.is_dir() {
         load_decks_from_dir(path).map(Some)
@@ -117,7 +105,8 @@ fn file_extension(path: &PathBuf) -> Option<&str> {
 
 fn load_decks_from_dir(path: impl Into<PathBuf>) -> Result<Vec<Deck>, DeckError> {
     let path = path.into();
-    let files = fs::read_dir(path)?
+    let files = fs::read_dir(&path)
+        .map_err(|err| DeckError::IoError(path, err))?
         .filter_map(|file| file.ok())
         .collect::<Vec<_>>();
     let len = files.len();
@@ -132,8 +121,9 @@ fn load_decks_from_dir(path: impl Into<PathBuf>) -> Result<Vec<Deck>, DeckError>
 
 fn load_deck_from_file(path: impl Into<PathBuf>) -> Result<Deck, DeckError> {
     let path = path.into();
-    let json = std::fs::read_to_string(path)?;
-    let deck = serde_json::from_str(&json)?;
+    let json =
+        std::fs::read_to_string(&path).map_err(|err| DeckError::IoError(path.clone(), err))?;
+    let deck = serde_json::from_str(&json).map_err(|err| DeckError::SerdeError(path, err))?;
 
     validate_deck(deck)
 }

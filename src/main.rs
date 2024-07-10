@@ -45,11 +45,17 @@ fn main() {
                         eprintln!("InvalidCard: TooManyFaces: Card with front \"{}\" has too many faces. Has {}, needs {}", front, card.len(), deck.faces.len())
                     }
                 },
-                DeckError::IoError(err) => {
-                    eprintln!("IoError: {err}")
+                DeckError::IoError(path, err) => {
+                    eprintln!(
+                        "IoError: {err}, path: {}",
+                        path.to_str().unwrap_or("unknown")
+                    )
                 }
-                DeckError::SerdeError(err) => {
-                    eprintln!("SerdeError: {err}")
+                DeckError::SerdeError(path, err) => {
+                    eprintln!(
+                        "SerdeError: {err}, path: {}",
+                        path.to_str().unwrap_or("unknown")
+                    )
                 }
             },
             FlashrError::UiError(err) => match err {
