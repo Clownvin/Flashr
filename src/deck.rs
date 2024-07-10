@@ -80,13 +80,12 @@ pub fn load_decks<P: Into<PathBuf> + Clone>(paths: Vec<P>) -> Result<Vec<Deck>, 
     paths
         .into_iter()
         .try_fold(Vec::with_capacity(len), |mut decks, path| {
-            decks.extend(load_decks_from_path(path)?.into_iter().flatten());
+            decks.extend(load_decks_from_path(path.into())?.into_iter().flatten());
             Ok(decks)
         })
 }
 
-fn load_decks_from_path(path: impl Into<PathBuf> + Clone) -> Result<Option<Vec<Deck>>, DeckError> {
-    let path = path.into();
+fn load_decks_from_path(path: PathBuf) -> Result<Option<Vec<Deck>>, DeckError> {
     let metadata = std::fs::metadata(&path).map_err(|err| DeckError::IoError(path.clone(), err))?;
 
     if metadata.is_dir() {
@@ -103,8 +102,7 @@ fn file_extension(path: &PathBuf) -> Option<&str> {
     path.extension().and_then(OsStr::to_str)
 }
 
-fn load_decks_from_dir(path: impl Into<PathBuf>) -> Result<Vec<Deck>, DeckError> {
-    let path = path.into();
+fn load_decks_from_dir(path: PathBuf) -> Result<Vec<Deck>, DeckError> {
     let files = fs::read_dir(&path)
         .map_err(|err| DeckError::IoError(path, err))?
         .filter_map(|file| file.ok())
@@ -119,8 +117,7 @@ fn load_decks_from_dir(path: impl Into<PathBuf>) -> Result<Vec<Deck>, DeckError>
         })
 }
 
-fn load_deck_from_file(path: impl Into<PathBuf>) -> Result<Deck, DeckError> {
-    let path = path.into();
+fn load_deck_from_file(path: PathBuf) -> Result<Deck, DeckError> {
     let json =
         std::fs::read_to_string(&path).map_err(|err| DeckError::IoError(path.clone(), err))?;
     let deck = serde_json::from_str(&json).map_err(|err| DeckError::SerdeError(path, err))?;
