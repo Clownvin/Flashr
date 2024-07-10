@@ -266,14 +266,14 @@ fn get_match_problems_for_deck_face<'decks>(
 }
 
 //NB 'suite lifetime technically not required, but I think it's more accurate
-struct MatchProblemWidget<'decks, 'suite> {
-    problem: &'suite MatchProblem<'decks>,
+struct MatchProblemWidget<'suite> {
+    problem: &'suite MatchProblem<'suite>,
     progress: f64,
     answer: Option<(usize, bool)>,
 }
 
-impl<'suite, 'decks> MatchProblemWidget<'suite, 'decks> {
-    fn new(problem: &'suite MatchProblem<'decks>, progress: f64) -> Self {
+impl<'suite> MatchProblemWidget<'suite> {
+    fn new(problem: &'suite MatchProblem<'suite>, progress: f64) -> Self {
         Self {
             problem,
             progress,
@@ -299,7 +299,7 @@ impl Default for MatchProblemWidgetState {
     }
 }
 
-impl StatefulWidget for MatchProblemWidget<'_, '_> {
+impl StatefulWidget for MatchProblemWidget<'_> {
     type State = MatchProblemWidgetState;
 
     fn render(
