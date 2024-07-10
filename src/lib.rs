@@ -86,7 +86,7 @@ fn clear_event_loop() -> Result<(), FlashrError> {
 
 fn match_user_input<T>(match_fn: impl Fn(Event) -> Option<T>) -> Result<T, FlashrError> {
     loop {
-        if event::poll(Duration::from_secs(1)).map_err(UiError::IoError)? {
+        if event::poll(Duration::MAX).map_err(UiError::IoError)? {
             let event = event::read().map_err(UiError::IoError)?;
             if let Some(value) = match_fn(event) {
                 return Ok(value);
