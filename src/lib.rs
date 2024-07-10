@@ -48,8 +48,8 @@ impl From<std::io::Error> for UiError {
 
 pub fn run() -> Result<(usize, usize), FlashrError> {
     let cli = FlashrCli::parse();
-    let mut term = initialize_terminal()?;
     let decks = load_decks(cli.paths)?;
+    let mut term = initialize_terminal()?;
     match_cards(&mut term, decks)
 }
 
