@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.5.8", features = ["derive"] }
+clap = { version = "4.5.9", features = ["derive"] }
 crossterm = "0.27.0"
 hashbrown = "0.14.5"
 rand = "0.8.5"
 ratatui = "0.27.0"
-serde = { "version" = "1.0.203", "features" = ["std", "derive"] }
+serde = { "version" = "1.0.204", "features" = ["std", "derive"] }
 serde_json = "1.0.120"

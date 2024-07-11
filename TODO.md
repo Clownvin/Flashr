@@ -1,10 +1,11 @@
 # TODOs
-- [ ] Scroll boxes for dialogue which exceeds sizes
+- [ ] Center text vertically
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
     - MVP mode should be called "match"
 - [ ] Program Argument: "fields" - which fields to test on
 - [ ] Additional mode: "mixed" - Random mix of all (non-flash) modes. Probably needs to implement a "count" argument for num times to test, as well as changing how problem generation works.
 - [ ] Prevent the same problem card twice in a row
+- [ ] Scroll boxes for dialogue which exceeds sizes
 - [ ] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
 - [ ] Match Mode: Track missed problems, and retry them (like duolingo, stretch goal)
     - [ ] Track problem stats in a JSON

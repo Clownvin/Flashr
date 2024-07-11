@@ -132,8 +132,9 @@ fn get_match_problems_for_deck<'decks>(
     decks: &'decks [Deck],
     rng: &mut ThreadRng,
 ) -> Result<Vec<MatchProblem<'decks>>, FlashrError> {
+    let problem_count = deck.faces.len() * deck.cards.len();
     let deck_problems = deck.faces.iter().enumerate().try_fold(
-        Vec::with_capacity(deck.faces.len() * deck.cards.len()),
+        Vec::with_capacity(problem_count),
         |mut problems,
          (problem_face_index_original, problem_face)|
          -> Result<Vec<_>, FlashrError> {
