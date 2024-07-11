@@ -49,9 +49,10 @@ struct MatchProblem<'suite> {
 
 type FaceAndCard<'suite> = (&'suite String, &'suite Card);
 
-trait IterShuffled<'rng> {
-    type Item;
-
+trait IterShuffled<'rng>
+where
+    Self: IntoIterator,
+{
     fn iter_shuffled(self, rng: &'rng mut ThreadRng) -> ShuffleIter<'rng, Self::Item>;
 }
 
@@ -79,8 +80,6 @@ impl<'rng, T> ShuffleIter<'rng, T> {
 }
 
 impl<'rng, T> IterShuffled<'rng> for Vec<T> {
-    type Item = T;
-
     fn iter_shuffled(self, rng: &'rng mut ThreadRng) -> ShuffleIter<'rng, Self::Item> {
         ShuffleIter { values: self, rng }
     }
