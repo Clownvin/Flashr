@@ -25,7 +25,7 @@ pub fn match_cards(
     let mut total_correct = 0;
 
     for (i, ref problem) in suite.problems.enumerate() {
-        let result = show_match_problem(term, problem, i as f64 / total_problems as f64)?;
+        let result = show_match_problem(term, problem, (i, total_problems))?;
 
         match result {
             ProblemResult::Correct => total_correct += 1,
@@ -268,12 +268,12 @@ fn get_match_problems_for_deck_face<'decks>(
 //NB 'suite lifetime technically not required, but I think it's more accurate
 struct MatchProblemWidget<'suite> {
     problem: &'suite MatchProblem<'suite>,
-    progress: f64,
+    progress: (usize, usize),
     answer: Option<(usize, bool)>,
 }
 
 impl<'suite> MatchProblemWidget<'suite> {
-    fn new(problem: &'suite MatchProblem<'suite>, progress: f64) -> Self {
+    fn new(problem: &'suite MatchProblem<'suite>, progress: (usize, usize)) -> Self {
         Self {
             problem,
             progress,
@@ -371,8 +371,13 @@ impl StatefulWidget for MatchProblemWidget<'_> {
             }
         }
 
+        let (completed, total) = self.progress;
+        let ratio = completed as f64 / total as f64;
+        let percent = ratio * 100.0;
+
         Gauge::default()
-            .percent((self.progress * 100.0) as u16)
+            .ratio(ratio)
+            .label(format!("{percent:05.2}% ({completed}/{total})"))
             .render(progress_area, buf);
     }
 }
@@ -453,7 +458,7 @@ impl Widget for MatchAnswerWidget {
 fn show_match_problem(
     term: &mut TerminalWrapper,
     problem: &MatchProblem,
-    progress: f64,
+    progress: (usize, usize),
 ) -> Result<ProblemResult, FlashrError> {
     let widget_state = &mut MatchProblemWidgetState::default();
 
@@ -473,7 +478,7 @@ fn show_match_problem(
 fn show_match_problem_result(
     term: &mut TerminalWrapper,
     problem: &MatchProblem,
-    progress: f64,
+    progress: (usize, usize),
     index_answered: usize,
 ) -> Result<ProblemResult, FlashrError> {
     let correct = index_answered == problem.index_answer_correct;
