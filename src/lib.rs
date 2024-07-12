@@ -8,6 +8,7 @@ use terminal::TerminalWrapper;
 
 pub mod deck;
 mod modes;
+mod random;
 mod terminal;
 
 #[derive(Parser, Debug)]
