@@ -1,0 +1,16 @@
+{
+    "name": "Not enough faces",
+    "faces": ["Front", "Middle", "Back"],
+    "cards": [
+        [
+            "Front",
+            "Middle",
+            "Back"
+        ],
+        [
+            "Front",
+            null,
+            null
+        ]
+    ]
+}

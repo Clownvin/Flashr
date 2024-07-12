@@ -53,7 +53,10 @@ pub struct Card(Vec<Face>);
 
 impl Card {
     pub fn join(&self, sep: &str) -> String {
-        self.iter().map(Face::join).collect::<Vec<_>>().join(sep)
+        self.iter()
+            .filter_map(Face::join)
+            .collect::<Vec<_>>()
+            .join(sep)
     }
 }
 
@@ -67,6 +70,7 @@ impl Deref for Card {
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Face {
+    None,
     Single(String),
     Multi(Vec<String>),
 }
@@ -77,6 +81,7 @@ impl Serialize for Face {
         S: serde::Serializer,
     {
         match self {
+            Face::None => serializer.serialize_none(),
             Face::Single(face) => serializer.serialize_str(face),
             Face::Multi(faces) => {
                 let mut seq = serializer.serialize_seq(Some(faces.len()))?;
@@ -96,6 +101,14 @@ impl<'de> Visitor<'de> for FaceVisitor {
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("a string or a sequence of strings")
+    }
+
+    //NB: this is for the None case... strange it wants this vs visit_none
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Face::None)
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
@@ -132,20 +145,26 @@ impl<'de> Deserialize<'de> for Face {
 }
 
 impl Face {
-    pub fn join(&self) -> String {
+    pub fn is_none(&self) -> bool {
+        matches!(self, Face::None)
+    }
+
+    pub fn join(&self) -> Option<String> {
         match self {
-            Face::Single(face) => face.clone(),
-            Face::Multi(faces) => faces.join(", "),
+            Face::None => None,
+            Face::Single(face) => Some(face.clone()),
+            Face::Multi(faces) => Some(faces.join(", ")),
         }
     }
 
-    pub fn join_random(&self, rng: &mut ThreadRng) -> String {
+    pub fn join_random(&self, rng: &mut ThreadRng) -> Option<String> {
         match self {
-            Face::Single(face) => face.clone(),
+            Face::None => None,
+            Face::Single(face) => Some(face.clone()),
             Face::Multi(faces) => {
                 let mut faces = faces.clone();
                 faces.shuffle(rng);
-                faces.join(", ")
+                Some(faces.join(", "))
             }
         }
     }
@@ -153,7 +172,10 @@ impl Face {
 
 impl Display for Face {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.join()))
+        f.write_fmt(format_args!(
+            "{}",
+            self.join().unwrap_or("(No Face)".to_owned())
+        ))
     }
 }
 
@@ -264,6 +286,17 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
         ));
     }
 
+    if let Some(card) = deck
+        .iter()
+        .find(|card| card.iter().filter(|face| !face.is_none()).count() <= 1)
+    {
+        let card = card.clone();
+        return Err(DeckError::InvalidCard(
+            deck,
+            CardError::NotEnoughFaces(card),
+        ));
+    }
+
     Ok(deck)
 }
 
@@ -279,10 +312,15 @@ mod tests {
     fn serialize_deck() {
         let deck: Deck = Deck {
             name: "Test".to_owned(),
-            faces: vec!["Face 1".to_owned(), "Face 2".to_owned()],
+            faces: vec![
+                "Face 1".to_owned(),
+                "Face 2".to_owned(),
+                "Face 3".to_owned(),
+            ],
             cards: vec![Card(vec![
                 Face::Single("Front".to_owned()),
                 Face::Multi(vec!["Back".to_owned(), "With many".to_owned()]),
+                Face::None,
             ])],
         };
         let file = File::create("test_ser.json").unwrap();
@@ -339,5 +377,11 @@ mod tests {
             .is_err_and(|err| matches!(err, DeckError::NotEnoughCards(_))));
         assert!(load_decks(vec!["./tests/duplicate_face.json"])
             .is_err_and(|err| matches!(err, DeckError::DuplicateFace(_, _))));
+        assert!(
+            load_decks(vec!["./tests/not_enough_non_null_faces.json"]).is_err_and(|err| matches!(
+                err,
+                DeckError::InvalidCard(_, CardError::NotEnoughFaces(_))
+            ))
+        )
     }
 }

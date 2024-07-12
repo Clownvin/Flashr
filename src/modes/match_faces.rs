@@ -132,6 +132,7 @@ fn get_match_problems_for_deck_face<'decks>(
                     deck.cards
                         .iter()
                         .map(move |card| (&card[deck_face_index], card))
+                        .filter(|(face, _card)| !face.is_none())
                 })
                 .collect::<Vec<_>>();
 
@@ -154,7 +155,7 @@ fn get_match_problems_for_deck_face<'decks>(
         .map(|(answer_face_index, cards)| (*answer_face_index, cards.iter().collect::<Vec<_>>()))
         .collect::<Vec<_>>();
 
-    let problems_for_face = deck.cards.iter().try_fold(
+    let problems_for_face = deck.cards.iter().filter(|card| !card[problem_face_index].is_none()).try_fold(
         Vec::with_capacity(deck.cards.len()),
         |mut problems, problem_card| {
             let (answer_face_index, answer_cards) = answers_faces_possible.get_random(rng);
@@ -205,8 +206,8 @@ fn get_match_problems_for_deck_face<'decks>(
                 .unwrap();
 
             problems.push(MatchProblem {
-                question: (problem_card[problem_face_index].join_random(rng), problem_card),
-                answers: answers.into_iter().map(|((face, card), correct)| ((face.join_random(rng), card), correct)).collect(),
+                question: (problem_card[problem_face_index].join_random(rng).unwrap(), problem_card),
+                answers: answers.into_iter().map(|((face, card), correct)| ((face.join_random(rng).unwrap(), card), correct)).collect(),
                 index_answer_correct,
             });
 
