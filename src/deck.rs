@@ -1,12 +1,13 @@
 use std::{
     ffi::OsStr,
-    fmt::Debug,
+    fmt::{Debug, Display},
     fs,
     ops::Deref,
     path::{Path, PathBuf},
 };
 
-use serde::{Deserialize, Serialize};
+use rand::{rngs::ThreadRng, seq::SliceRandom};
+use serde::{de::Visitor, ser::SerializeSeq, Deserialize, Serialize};
 
 ///Example JSON:
 ///```JSON
@@ -47,14 +48,112 @@ impl Deref for Deck {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
-pub struct Card(Vec<String>);
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
+pub struct Card(Vec<Face>);
+
+impl Card {
+    pub fn join(&self, sep: &str) -> String {
+        self.iter().map(Face::join).collect::<Vec<_>>().join(sep)
+    }
+}
 
 impl Deref for Card {
-    type Target = Vec<String>;
+    type Target = Vec<Face>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum Face {
+    Single(String),
+    Multi(Vec<String>),
+}
+
+impl Serialize for Face {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Face::Single(face) => serializer.serialize_str(face),
+            Face::Multi(faces) => {
+                let mut seq = serializer.serialize_seq(Some(faces.len()))?;
+                for face in faces {
+                    seq.serialize_element(face)?;
+                }
+                seq.end()
+            }
+        }
+    }
+}
+
+struct FaceVisitor;
+
+impl<'de> Visitor<'de> for FaceVisitor {
+    type Value = Face;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a string or a sequence of strings")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'de>,
+    {
+        let mut faces = match seq.size_hint() {
+            Some(size) => Vec::with_capacity(size),
+            None => vec![],
+        };
+
+        while let Some(next) = seq.next_element()? {
+            faces.push(next);
+        }
+
+        Ok(Face::Multi(faces))
+    }
+
+    fn visit_str<E>(self, face: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Face::Single(face.to_owned()))
+    }
+}
+
+impl<'de> Deserialize<'de> for Face {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(FaceVisitor)
+    }
+}
+
+impl Face {
+    pub fn join(&self) -> String {
+        match self {
+            Face::Single(face) => face.clone(),
+            Face::Multi(faces) => faces.join(", "),
+        }
+    }
+
+    pub fn join_random(&self, rng: &mut ThreadRng) -> String {
+        match self {
+            Face::Single(face) => face.clone(),
+            Face::Multi(faces) => {
+                let mut faces = faces.clone();
+                faces.shuffle(rng);
+                faces.join(", ")
+            }
+        }
+    }
+}
+
+impl Display for Face {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.join()))
     }
 }
 
@@ -170,9 +269,26 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::deck::{CardError, Deck, DeckError};
+    use std::{fs::File, io::BufWriter};
 
-    use super::load_decks;
+    use crate::deck::{CardError, Deck, DeckError, Face};
+
+    use super::{load_decks, Card};
+
+    #[test]
+    fn serialize_deck() {
+        let deck: Deck = Deck {
+            name: "Test".to_owned(),
+            faces: vec!["Face 1".to_owned(), "Face 2".to_owned()],
+            cards: vec![Card(vec![
+                Face::Single("Front".to_owned()),
+                Face::Multi(vec!["Back".to_owned(), "With many".to_owned()]),
+            ])],
+        };
+        let file = File::create("test_ser.json").unwrap();
+        let writer = BufWriter::new(file);
+        serde_json::to_writer(writer, &deck).unwrap();
+    }
 
     #[test]
     fn deserialize_deck() -> serde_json::Result<()> {
@@ -193,14 +309,14 @@ mod tests {
         assert_eq!(deck.len(), 1);
         assert_eq!(deck.name, "Kanji Words");
         assert_eq!(deck.faces.len(), 3);
-        assert_eq!(deck[0][2], "Japan");
+        assert_eq!(deck[0][2], Face::Single("Japan".into()));
         Ok(())
     }
 
     #[test]
     fn load_decks_from_files() {
         let decks = load_decks(vec!["./tests/deck1.json", "./tests/dir"]).unwrap();
-        assert_eq!(decks.len(), 2);
+        assert_eq!(decks.len(), 3);
     }
 
     #[test]

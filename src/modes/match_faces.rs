@@ -1,5 +1,5 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
-use rand::rngs::ThreadRng;
+use rand::{rngs::ThreadRng, seq::SliceRandom};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Stylize},
@@ -8,11 +8,11 @@ use ratatui::{
 };
 
 use crate::{
-    clear_and_match_event,
     deck::{Card, Deck},
+    event::{clear_and_match_event, UserInput},
     random::{GetRandom, IterShuffled, ShuffleIter},
     terminal::TerminalWrapper,
-    FlashrError, ProblemResult, UserInput,
+    FlashrError, ProblemResult,
 };
 
 pub fn match_cards(
@@ -48,12 +48,13 @@ struct MatchProblem<'suite> {
     index_answer_correct: usize,
 }
 
-type FaceAndCard<'suite> = (&'suite String, &'suite Card);
+type FaceAndCard<'suite> = (String, &'suite Card);
 
 fn get_match_problem_suite<'rng, 'decks>(
     rng: &'rng mut ThreadRng,
     decks: &'decks [Deck],
 ) -> Result<MatchProblemSuite<'rng, 'decks>, FlashrError> {
+    //TODO: MatchSuite with no problems?
     if decks.is_empty() {
         return Err(FlashrError::DeckMismatchError("No decks provided".into()));
     }
@@ -204,8 +205,8 @@ fn get_match_problems_for_deck_face<'decks>(
                 .unwrap();
 
             problems.push(MatchProblem {
-                question: (&problem_card[problem_face_index], problem_card),
-                answers,
+                question: (problem_card[problem_face_index].join_random(rng), problem_card),
+                answers: answers.into_iter().map(|((face, card), correct)| ((face.join_random(rng), card), correct)).collect(),
                 index_answer_correct,
             });
 
@@ -282,11 +283,11 @@ impl StatefulWidget for MatchProblemWidget<'_> {
         let layout = Layout::new(Direction::Horizontal, [Constraint::Ratio(1, 2); 2]);
         let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
 
-        let question = self.problem.question.0;
+        let question = &self.problem.question.0;
 
         match self.answer {
             None => {
-                Paragraph::new(question.clone())
+                Paragraph::new(question.to_owned())
                     .wrap(Wrap { trim: false })
                     .centered()
                     .render(question_area, buf);
@@ -296,13 +297,13 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                         let answer_area = answer_areas[answer_index];
                         state.answer_areas[answer_index] = answer_area;
 
-                        MatchAnswerWidget::new(answer.to_string(), answer_index)
+                        MatchAnswerWidget::new(answer.to_owned(), answer_index)
                             .render(answer_area, buf)
                     },
                 );
             }
             Some((answered_index, correct)) => {
-                Paragraph::new(question.clone())
+                Paragraph::new(question.to_owned())
                     .wrap(Wrap { trim: false })
                     .centered()
                     .fg(if correct { Color::Green } else { Color::Red })

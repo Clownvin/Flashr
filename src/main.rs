@@ -1,5 +1,5 @@
 use flashr::{
-    deck::{CardError, DeckError},
+    deck::{CardError, DeckError, Face},
     FlashrError,
 };
 
@@ -37,11 +37,17 @@ fn main() {
                 ),
                 DeckError::InvalidCard(deck, card_err) => match card_err {
                     CardError::NotEnoughFaces(card) => {
-                        let front = card.first().cloned().unwrap_or("MISSING FRONT".to_owned());
+                        let front = card
+                            .first()
+                            .map(Face::to_string)
+                            .unwrap_or("MISSING FRONT".to_owned());
                         eprintln!("InvalidCard: NotEnoughFaces: Card with front \"{}\" does not have enough faces. Has {}, needs {}", front, card.len(), deck.faces.len())
                     }
                     CardError::TooManyFaces(card) => {
-                        let front = card.first().cloned().unwrap_or("MISSING FRONT".to_owned());
+                        let front = card
+                            .first()
+                            .map(Face::to_string)
+                            .unwrap_or("MISSING FRONT".to_owned());
                         eprintln!("InvalidCard: TooManyFaces: Card with front \"{}\" has too many faces. Has {}, needs {}", front, card.len(), deck.faces.len())
                     }
                 },

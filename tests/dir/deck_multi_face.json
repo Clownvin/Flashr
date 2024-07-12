@@ -1,0 +1,10 @@
+{
+    "name": "Deck with multi faces",
+    "faces": ["Front", "Back"],
+    "cards": [
+        ["A", "B"],
+        ["C", "D"],
+        ["E", "F"],
+        ["G", ["H", "I"]]
+    ]
+}
