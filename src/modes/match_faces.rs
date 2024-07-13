@@ -1,3 +1,5 @@
+use std::iter;
+
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 use ratatui::{
@@ -10,24 +12,27 @@ use ratatui::{
 use crate::{
     deck::{Card, Deck},
     event::{clear_and_match_event, UserInput},
-    random::{IterShuffled, ShuffleIter},
+    random::{GetRandom, IterShuffled},
     terminal::TerminalWrapper,
     FlashrError, ProblemResult,
 };
+
+const ANSWERS_PER_PROBLEM: usize = 4;
 
 pub fn match_cards(
     term: &mut TerminalWrapper,
     decks: Vec<Deck>,
 ) -> Result<(usize, usize), FlashrError> {
     let rng = &mut rand::thread_rng();
-    let suite = get_match_problem_suite(rng, &decks)?;
+    let problems = MatchProblemIterator::new(&decks, rng);
 
-    let total_problems = suite.problems.remaining();
     let mut total_correct = 0;
+    let mut total = 0;
 
-    for (i, ref problem) in suite.problems.enumerate() {
-        let result = show_match_problem(term, problem, (i, total_problems))?;
+    for (i, problem) in problems.enumerate() {
+        let result = show_match_problem(term, &problem?, (total_correct, i))?;
 
+        total += 1;
         match result {
             ProblemResult::Correct => total_correct += 1,
             ProblemResult::Quit => return Ok((total_correct, i)),
@@ -35,201 +40,100 @@ pub fn match_cards(
         }
     }
 
-    Ok((total_correct, total_problems))
+    Ok((total_correct, total))
 }
 
-struct MatchProblemSuite<'rng, 'decks> {
-    problems: ShuffleIter<'rng, MatchProblem<'decks>>,
+struct MatchProblemIterator<'rng, 'decks> {
+    rng: &'rng mut ThreadRng,
+    deck_cards: Vec<(&'decks Deck, &'decks Card)>,
+}
+
+impl<'rng, 'decks> MatchProblemIterator<'rng, 'decks> {
+    fn new(decks: &'decks [Deck], rng: &'rng mut ThreadRng) -> Self {
+        let mut deck_cards = Vec::with_capacity(decks.iter().fold(0, |total, deck| {
+            total + (deck.cards.len() * deck.faces.len())
+        }));
+
+        for deck in decks {
+            for card in deck.cards.iter() {
+                deck_cards.push((deck, card));
+            }
+        }
+
+        Self { rng, deck_cards }
+    }
+}
+
+impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
+    type Item = Result<MatchProblem<'decks>, FlashrError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (deck, card) = self.deck_cards.get_random(self.rng).unwrap();
+        let faces = deck
+            .faces
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| card[*i].is_some())
+            .collect::<Vec<_>>()
+            .iter_shuffled(self.rng)
+            .take(2)
+            .collect::<Vec<_>>();
+
+        let (question_index, question_face) = faces[0];
+        let (answer_index, answer_face) = faces[1];
+
+        let problem_question = card[question_index].clone().unwrap();
+        let problem_answer = card[answer_index].clone().unwrap();
+
+        let mut answer_cards = Vec::with_capacity(ANSWERS_PER_PROBLEM);
+        self.deck_cards
+            .clone()
+            .iter_shuffled(self.rng)
+            .filter_map(|(deck, card)| {
+                deck.faces.iter().enumerate().find_map(|(i, face)| {
+                    if face != answer_face {
+                        None
+                    } else {
+                        card[i].clone().map(|face| ((face, card), false))
+                    }
+                })
+            })
+            .take(ANSWERS_PER_PROBLEM - 1)
+            .chain(iter::once(((problem_answer, *card), true)))
+            .for_each(|answer_card| answer_cards.push(answer_card));
+
+        if answer_cards.len() < ANSWERS_PER_PROBLEM {
+            let deck = deck.name.clone();
+            return Some(Err(FlashrError::DeckMismatchError(format!("Cannot find enough answers for question {problem_question}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
+        }
+
+        answer_cards.shuffle(self.rng);
+
+        let answer_index = answer_cards
+            .iter()
+            .enumerate()
+            .find(|(_, (_, correct))| *correct)
+            .map(|(i, _)| i)
+            .unwrap();
+
+        Some(Ok(MatchProblem {
+            question: (problem_question.join_random(self.rng), card),
+            answers: answer_cards
+                .into_iter()
+                .map(|((face, card), correct)| ((face.join_random(self.rng), card), correct))
+                .collect(),
+            answer_index,
+        }))
+    }
 }
 
 struct MatchProblem<'suite> {
     question: FaceAndCard<'suite>,
     answers: Vec<(FaceAndCard<'suite>, bool)>,
-    index_answer_correct: usize,
+    answer_index: usize,
 }
 
 type FaceAndCard<'suite> = (String, &'suite Card);
-
-fn get_match_problem_suite<'rng, 'decks>(
-    rng: &'rng mut ThreadRng,
-    decks: &'decks [Deck],
-) -> Result<MatchProblemSuite<'rng, 'decks>, FlashrError> {
-    //TODO: MatchSuite with no problems?
-    if decks.is_empty() {
-        return Err(FlashrError::DeckMismatchError("No decks provided".into()));
-    }
-
-    let problem_count = decks
-        .iter()
-        .map(|deck| deck.cards.len() * deck.faces.len())
-        .sum();
-
-    let problems = decks
-        .iter()
-        .try_fold(
-            Vec::with_capacity(problem_count),
-            |mut problems, deck| -> Result<_, FlashrError> {
-                let deck_problems = get_match_problems_for_deck(deck, decks, rng)?;
-                problems.extend(deck_problems);
-                Ok(problems)
-            },
-        )?
-        .iter_shuffled(rng);
-
-    Ok(MatchProblemSuite { problems })
-}
-
-fn get_match_problems_for_deck<'decks>(
-    deck: &'decks Deck,
-    decks: &'decks [Deck],
-    rng: &mut ThreadRng,
-) -> Result<Vec<MatchProblem<'decks>>, FlashrError> {
-    let problem_count = deck.faces.len() * deck.cards.len();
-    let deck_problems = deck.faces.iter().enumerate().try_fold(
-        Vec::with_capacity(problem_count),
-        |mut problems,
-         (problem_face_index_original, problem_face)|
-         -> Result<Vec<_>, FlashrError> {
-            let problems_for_face = get_match_problems_for_deck_face(
-                deck,
-                decks,
-                problem_face_index_original,
-                problem_face,
-                rng,
-            )?;
-            problems.extend(problems_for_face);
-            Ok(problems)
-        },
-    )?;
-    Ok(deck_problems)
-}
-
-fn get_match_problems_for_deck_face<'decks>(
-    deck: &'decks Deck,
-    decks: &'decks [Deck],
-    problem_face_index: usize,
-    problem_face: &'decks String,
-    rng: &mut ThreadRng,
-) -> Result<Vec<MatchProblem<'decks>>, FlashrError> {
-    let faces_possible = deck
-        .faces
-        .iter()
-        .enumerate()
-        .filter(|(answer_face_index, _answer_face)| *answer_face_index != problem_face_index);
-
-    let answers_faces_possible = faces_possible
-        .map(|(answer_face_index, answer_face)| {
-            let decks_with_face = decks.iter().filter_map(|deck| {
-                deck.faces
-                    .iter()
-                    .enumerate()
-                    .find(|(_other_face_index, deck_face)| *deck_face == answer_face)
-                    .map(|(other_face_index, _deck_face)| (deck, other_face_index))
-            });
-
-            let answers_for_face = decks_with_face
-                .flat_map(|(deck, other_face_index)| {
-                    deck.cards
-                        .iter()
-                        .flat_map(move |card| Some((card[other_face_index].clone()?, card)))
-                })
-                .collect::<Vec<_>>();
-
-            (answer_face_index, answers_for_face)
-        })
-        .filter(|(_answer_face_index, cards)| cards.len() > 3)
-        .collect::<Vec<_>>();
-
-    if answers_faces_possible.is_empty() {
-        let deck_name = &deck.name;
-        return Err(FlashrError::DeckMismatchError(
-            format!("Unable to find enough possible answers for the \"{problem_face}\" face of the \"{deck_name}\" deck"),
-        ));
-    }
-
-    //NB: Converting to refs to ideally make the Vec::clone faster
-    //TODO: Needs test/benchmark to prove faster.
-    let answers_faces_possible = answers_faces_possible
-        .iter()
-        .map(|(answer_face_index, answers_for_face)| (*answer_face_index, answers_for_face))
-        .collect::<Vec<_>>();
-
-    let get_answers_for_card = |card: &Card, rng: &mut ThreadRng| {
-        answers_faces_possible
-            .clone()
-            .iter_shuffled(rng)
-            .find_map(|(answer_face_index, cards)| {
-                Some((card[answer_face_index].clone()?, answer_face_index, cards))
-            })
-            .unwrap()
-    };
-
-    let mut cards_with_face = deck
-        .cards
-        .iter()
-        .filter_map(|card| Some((card[problem_face_index].clone()?, card)));
-
-    let problems_for_face = cards_with_face.try_fold(
-        Vec::with_capacity(deck.cards.len()),
-        |mut problems, (problem_face, problem_card)| {
-            let (problem_answer_face, answer_face_index, answer_cards) = get_answers_for_card(problem_card, rng);
-
-            let mut seen = vec![problem_card];
-            let mut answers = (*answer_cards)
-                .clone()
-                //NOTE: Shuffling here as well so that the filter isn't deterministic
-                //Otherwise, it would always filter out answers that appear later
-                .iter_shuffled(rng)
-                .filter(|(_answer, answer_card)| {
-                    if seen.contains(answer_card)
-                        //TODO: Needs test case to prove works
-                        //NB: Two+ decks with different face count can error, still no proof that
-                        //this solves the issue
-                        // || answer_card[problem_face_index] == problem_card[problem_face_index]
-                    {
-                        false
-                    } else {
-                        seen.push(answer_card);
-                        true
-                    }
-                })
-                .take(3)
-                .map(|answer_and_card| (answer_and_card.to_owned(), false))
-                .chain(std::iter::once((
-                            (problem_answer_face, problem_card),
-                    true,
-                )))
-                .collect::<Vec<_>>();
-
-            if answers.len() < 4 {
-                let deck_face_answer = &deck.faces[answer_face_index];
-
-                return Err(FlashrError::DeckMismatchError(format!(
-                    "Not enough answers for card face \"{problem_face}\", using answer face \"{deck_face_answer}\""
-                )));
-            }
-
-            answers.shuffle(rng);
-
-            let index_answer_correct = answers
-                .iter()
-                .enumerate()
-                .find(|(_, (_, correct))| *correct)
-                .map(|(i, _)| i)
-                .unwrap();
-
-            problems.push(MatchProblem {
-                question: (problem_face.join_random(rng), problem_card),
-                answers: answers.into_iter().map(|((face, card), correct)| ((face.join_random(rng), card), correct)).collect(),
-                index_answer_correct,
-            });
-
-            Ok(problems)
-        },
-    )?;
-
-    Ok(problems_for_face)
-}
 
 //NB 'suite lifetime technically not required, but I think it's more accurate
 struct MatchProblemWidget<'suite> {
@@ -338,7 +242,11 @@ impl StatefulWidget for MatchProblemWidget<'_> {
         }
 
         let (completed, total) = self.progress;
-        let ratio = completed as f64 / total as f64;
+        let ratio = if total == 0 {
+            0.0
+        } else {
+            completed as f64 / total as f64
+        };
         let percent = ratio * 100.0;
 
         Gauge::default()
@@ -447,7 +355,7 @@ fn show_match_problem_result(
     progress: (usize, usize),
     index_answered: usize,
 ) -> Result<ProblemResult, FlashrError> {
-    let correct = index_answered == problem.index_answer_correct;
+    let correct = index_answered == problem.answer_index;
     let widget_state = &mut MatchProblemWidgetState::default();
 
     loop {
@@ -457,7 +365,7 @@ fn show_match_problem_result(
         )?;
 
         match clear_and_match_event(|event| match_match_input(event, widget_state))? {
-            UserInput::Answer(answer) if answer == problem.index_answer_correct => {
+            UserInput::Answer(answer) if answer == problem.answer_index => {
                 return Ok(if correct {
                     ProblemResult::Correct
                 } else {
@@ -504,19 +412,20 @@ fn match_match_input(event: Event, state: &MatchProblemWidgetState) -> Option<Us
 mod test {
     use crate::deck::load_decks;
 
-    use super::get_match_problem_suite;
+    use super::MatchProblemIterator;
 
     #[test]
     fn test_match_problems() {
         let decks = load_decks(vec!["./tests/deck1.json"]).unwrap();
         let rng = &mut rand::thread_rng();
-        let suite = get_match_problem_suite(rng, &decks).unwrap();
-        for problem in suite.problems {
-            //Assert that each problem question is not present in the answers
-            assert!(problem
+        let problems = MatchProblemIterator::new(&decks, rng);
+
+        for problem in problems.take(10) {
+            assert!(problem.is_ok_and(|problem| problem
                 .answers
                 .iter()
-                .all(|((answer, _), _)| answer != &problem.question.0))
+                //Assert that each problem question is not present in the answers
+                .all(|((answer, _), _)| answer != &problem.question.0)))
         }
     }
 }

@@ -24,12 +24,6 @@ impl<T> Iterator for ShuffleIter<'_, T> {
     }
 }
 
-impl<'rng, T> ShuffleIter<'rng, T> {
-    pub fn remaining(&self) -> usize {
-        self.values.len()
-    }
-}
-
 impl<'rng, T> IterShuffled<'rng> for Vec<T> {
     fn iter_shuffled(self, rng: &'rng mut ThreadRng) -> ShuffleIter<'rng, Self::Item> {
         ShuffleIter { values: self, rng }
@@ -39,13 +33,13 @@ impl<'rng, T> IterShuffled<'rng> for Vec<T> {
 pub trait GetRandom {
     type Item;
 
-    fn _get_random(&self, rng: &mut ThreadRng) -> &'_ Self::Item;
+    fn get_random(&self, rng: &mut ThreadRng) -> Option<&'_ Self::Item>;
 }
 
-impl<T> GetRandom for Vec<T> {
+impl<T> GetRandom for [T] {
     type Item = T;
 
-    fn _get_random(&self, rng: &mut ThreadRng) -> &'_ Self::Item {
-        &self[rng.gen_range(0..self.len())]
+    fn get_random(&self, rng: &mut ThreadRng) -> Option<&'_ Self::Item> {
+        self.get(rng.gen_range(0..self.len()))
     }
 }
