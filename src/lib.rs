@@ -1,6 +1,8 @@
 #![feature(iter_intersperse)]
+use std::fmt::Display;
+
 use clap::Parser;
-use deck::{load_decks, DeckError};
+use deck::{load_decks, CardError, DeckError};
 use modes::match_faces::match_cards;
 use terminal::TerminalWrapper;
 
@@ -21,6 +23,60 @@ pub enum FlashrError {
     DeckError(DeckError),
     UiError(UiError),
     DeckMismatchError(String),
+}
+
+impl Display for FlashrError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let string = match self {
+            FlashrError::DeckMismatchError(reason) => format!("DeckMismatch: {reason}"),
+            FlashrError::DeckError(err) => match err {
+                DeckError::NotEnoughCards(deck) => format!(
+                    "NotEnoughCards: Deck \"{}\" does not have enough cards.",
+                    deck.name
+                ),
+                DeckError::NotEnoughFaces(deck) => format!(
+                    "NotEnoughFaces: Deck \"{}\" does not have enough faces. Requires two, has {}",
+                    deck.name,
+                    deck.faces.len()
+                ),
+                DeckError::DuplicateFace(deck, face) => format!(
+                    "DuplicateFace: Deck \"{}\" has at least two \"{}\" faces",
+                    deck.name, face
+                ),
+                DeckError::InvalidCard(deck, card_err) => match card_err {
+                    CardError::NotEnoughFaces(card) => {
+                        let front = card.front_string();
+                        let face_count = card.len();
+                        let required = deck.faces.len();
+                        format!("InvalidCard: NotEnoughFaces: Card with front \"{front}\" does not have enough faces. Has {face_count}, needs {required}")
+                    }
+                    CardError::TooManyFaces(card) => {
+                        let front = card.front_string();
+                        let face_count = card.len();
+                        let required = deck.faces.len();
+                        format!("InvalidCard: TooManyFaces: Card with front \"{front}\" has too many faces. Has {face_count}, needs {required}")
+                    }
+                },
+                DeckError::IoError(path, err) => {
+                    format!(
+                        "IoError: {err}, path: {}",
+                        path.to_str().unwrap_or("unknown")
+                    )
+                }
+                DeckError::SerdeError(path, err) => {
+                    format!(
+                        "SerdeError: {err}, path: {}",
+                        path.to_str().unwrap_or("unknown")
+                    )
+                }
+            },
+            FlashrError::UiError(err) => match err {
+                UiError::IoError(err) => format!("UiError: IoError: {err}"),
+            },
+        };
+
+        f.write_str(&string)
+    }
 }
 
 impl From<DeckError> for FlashrError {

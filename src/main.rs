@@ -1,8 +1,3 @@
-use flashr::{
-    deck::{CardError, DeckError, Face},
-    FlashrError,
-};
-
 fn main() {
     let result = flashr::run();
     match result {
@@ -19,58 +14,6 @@ fn main() {
                 println!("Well done!");
             }
         }
-        Err(err) => match err {
-            FlashrError::DeckMismatchError(reason) => eprintln!("DeckMismatch: {reason}"),
-            FlashrError::DeckError(err) => match err {
-                DeckError::NotEnoughCards(deck) => eprintln!(
-                    "NotEnoughCards: Deck \"{}\" does not have enough cards.",
-                    deck.name
-                ),
-                DeckError::NotEnoughFaces(deck) => eprintln!(
-                    "NotEnoughFaces: Deck \"{}\" does not have enough faces. Requires two, has {}",
-                    deck.name,
-                    deck.faces.len()
-                ),
-                DeckError::DuplicateFace(deck, face) => eprintln!(
-                    "DuplicateFace: Deck \"{}\" has at least two \"{}\" faces",
-                    deck.name, face
-                ),
-                DeckError::InvalidCard(deck, card_err) => match card_err {
-                    CardError::NotEnoughFaces(card) => {
-                        let front = card
-                            .iter()
-                            .flatten()
-                            .take(1)
-                            .map(Face::to_string)
-                            .collect::<String>();
-                        eprintln!("InvalidCard: NotEnoughFaces: Card with front \"{front}\" does not have enough faces. Has {}, needs {}", card.len(), deck.faces.len())
-                    }
-                    CardError::TooManyFaces(card) => {
-                        let front = card
-                            .iter()
-                            .flatten()
-                            .take(1)
-                            .map(Face::to_string)
-                            .collect::<String>();
-                        eprintln!("InvalidCard: TooManyFaces: Card with front \"{front}\" has too many faces. Has {}, needs {}", card.len(), deck.faces.len())
-                    }
-                },
-                DeckError::IoError(path, err) => {
-                    eprintln!(
-                        "IoError: {err}, path: {}",
-                        path.to_str().unwrap_or("unknown")
-                    )
-                }
-                DeckError::SerdeError(path, err) => {
-                    eprintln!(
-                        "SerdeError: {err}, path: {}",
-                        path.to_str().unwrap_or("unknown")
-                    )
-                }
-            },
-            FlashrError::UiError(err) => match err {
-                flashr::UiError::IoError(err) => eprintln!("UiError: IoError: {err}"),
-            },
-        },
+        Err(err) => eprintln!("{err}"),
     }
 }

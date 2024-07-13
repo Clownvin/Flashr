@@ -59,6 +59,16 @@ impl Card {
             .intersperse(sep.to_owned())
             .collect::<String>()
     }
+
+    pub fn front(&self) -> Option<&Face> {
+        self.iter().flatten().next()
+    }
+
+    pub fn front_string(&self) -> String {
+        self.front()
+            .map(Face::to_string)
+            .unwrap_or("MISSING_FRONT".to_owned())
+    }
 }
 
 impl Deref for Card {
