@@ -84,10 +84,10 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
         let problem_answer = card[answer_index].clone().unwrap();
 
         let mut seen_faces = Vec::with_capacity(ANSWERS_PER_PROBLEM);
-        seen_faces.push(problem_answer.clone());
+        seen_faces.push(&problem_answer);
 
         let mut answer_cards = Vec::with_capacity(ANSWERS_PER_PROBLEM);
-        answer_cards.push(((problem_answer, *card), true));
+        answer_cards.push(((problem_answer.clone(), *card), true));
 
         self.deck_cards
             .clone()
@@ -97,12 +97,12 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
                     if face != answer_face {
                         None
                     } else {
-                        card[i].clone().and_then(|face| {
+                        card[i].as_ref().and_then(|face| {
                             if seen_faces.contains(&face) {
                                 None
                             } else {
-                                seen_faces.push(face.clone());
-                                Some(((face, card), false))
+                                seen_faces.push(face);
+                                Some(((face.clone(), card), false))
                             }
                         })
                     }
@@ -112,7 +112,7 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
             .for_each(|answer_card| answer_cards.push(answer_card));
 
         if answer_cards.len() < ANSWERS_PER_PROBLEM {
-            let deck = deck.name.clone();
+            let deck = &deck.name;
             return Some(Err(FlashrError::DeckMismatchError(format!("Cannot find enough answers for question {problem_question}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
         }
 
