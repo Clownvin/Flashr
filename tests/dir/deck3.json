@@ -1,0 +1,11 @@
+{
+    "name": "Basic Kanji",
+    "faces": ["Kanji", "Hiragana", "English"],
+    "cards": [
+        [
+            null,
+            "はい",
+            "Yes"
+        ]
+    ]
+}

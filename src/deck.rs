@@ -371,8 +371,37 @@ mod tests {
 
     #[test]
     fn load_decks_from_files() {
-        let decks = load_decks(vec!["./tests/deck1.json", "./tests/dir"]).unwrap();
+        let decks = load_decks(vec![
+            "./tests/deck1.json",
+            "./tests/dir",
+            "./tests/empty_dir",
+        ])
+        .unwrap();
         assert_eq!(decks.len(), 3);
+    }
+
+    #[test]
+    fn load_decks_from_file() {
+        let decks = load_decks(vec!["./tests/deck1.json"]).unwrap();
+        assert_eq!(decks.len(), 1);
+    }
+
+    #[test]
+    fn load_decks_from_empty_folder() {
+        let decks = load_decks(vec!["./tests/empty_dir"]).unwrap();
+        assert_eq!(decks.len(), 0);
+    }
+
+    #[test]
+    fn load_decks_with_subfaces() {
+        let decks = load_decks(vec!["./tests/deck_subfaces.json"]).unwrap();
+        assert!(decks.iter().any(|deck| {
+            deck.cards.iter().any(|card| {
+                card.iter()
+                    .flatten()
+                    .any(|face| matches!(face, Face::Multi(_)))
+            })
+        }));
     }
 
     #[test]
