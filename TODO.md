@@ -1,4 +1,5 @@
 # TODOs
+- [ ] Test and error if loaded Decks with same names
 - [ ] Center text vertically
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
     - MVP mode should be called "match"
@@ -28,3 +29,4 @@
 - [x] Show stats at end (%/# correct/incorrect, etc)
 - [x] Refresh on resize
 - [x] Mouse support
+- [x] Refactor into infinite iterator
