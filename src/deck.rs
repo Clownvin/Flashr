@@ -229,6 +229,7 @@ pub enum CardError {
     DuplicateFronts(Box<(Face, Card, Card)>),
     EmptyFace(Card),
     NotEnoughFaces(Card, usize),
+    NotEnoughUsableFaces(Card),
     TooManyFaces(Card, usize),
 }
 
@@ -248,6 +249,11 @@ impl Display for CardError {
                 let front = card.front_string();
                 let face_count = card.len();
                 f.write_fmt(format_args!("Card with front \"{front}\" does not have enough faces. Has {face_count}, needs {expected}"))
+            }
+            Self::NotEnoughUsableFaces(card) => {
+                let front = card.front_string();
+                let face_count = card.len();
+                f.write_fmt(format_args!("Card with front \"{front}\" does not have enough usable (non-null) faces. Has {face_count}, needs {}", MIN_FACE_COUNT))
             }
             Self::TooManyFaces(card, expected) => {
                 let front = card.front_string();
@@ -352,7 +358,7 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
         let card = card.clone();
         return Err(DeckError::InvalidCard(
             deck,
-            CardError::NotEnoughFaces(card, MIN_FACE_COUNT),
+            CardError::NotEnoughUsableFaces(card),
         ));
     }
 
@@ -489,7 +495,12 @@ mod tests {
         );
         assert!(load_decks(vec!["./tests/not_enough_faces.json"])
             .is_err_and(|err| matches!(err, DeckError::NotEnoughFaces(_))));
-        assert!(load_decks(vec!["./tests/not_enough_cards.json"]).is_err());
+        assert!(
+            load_decks(vec!["./tests/not_enough_non_null_faces.json"]).is_err_and(|err| matches!(
+                err,
+                DeckError::InvalidCard(_, CardError::NotEnoughUsableFaces(_))
+            ))
+        );
         assert!(load_decks(vec!["./tests/duplicate_face.json"])
             .is_err_and(|err| matches!(err, DeckError::DuplicateFace(_, _))));
         assert!(
