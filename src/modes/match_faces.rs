@@ -10,7 +10,7 @@ use ratatui::{
 use crate::{
     deck::{Card, Deck},
     event::{clear_and_match_event, UserInput},
-    random::{GetRandom, IterShuffled, ShuffleIter},
+    random::{IterShuffled, ShuffleIter},
     terminal::TerminalWrapper,
     FlashrError, ProblemResult,
 };
@@ -123,16 +123,15 @@ fn get_match_problems_for_deck_face<'decks>(
                 deck.faces
                     .iter()
                     .enumerate()
-                    .find(|(_deck_face_index, deck_face)| *deck_face == answer_face)
-                    .map(|(deck_face_index, _deck_face)| (deck, deck_face_index))
+                    .find(|(_other_face_index, deck_face)| *deck_face == answer_face)
+                    .map(|(other_face_index, _deck_face)| (deck, other_face_index))
             });
 
             let answers_for_face = decks_with_face
-                .flat_map(|(deck, deck_face_index)| {
+                .flat_map(|(deck, other_face_index)| {
                     deck.cards
                         .iter()
-                        .map(move |card| (&card[deck_face_index], card))
-                        .filter(|(face, _card)| !face.is_none())
+                        .flat_map(move |card| Some((card[other_face_index].clone()?, card)))
                 })
                 .collect::<Vec<_>>();
 
@@ -152,22 +151,37 @@ fn get_match_problems_for_deck_face<'decks>(
     //TODO: Needs test/benchmark to prove faster.
     let answers_faces_possible = answers_faces_possible
         .iter()
-        .map(|(answer_face_index, cards)| (*answer_face_index, cards.iter().collect::<Vec<_>>()))
+        .map(|(answer_face_index, answers_for_face)| (*answer_face_index, answers_for_face))
         .collect::<Vec<_>>();
 
-    let problems_for_face = deck.cards.iter().filter(|card| !card[problem_face_index].is_none()).try_fold(
-        Vec::with_capacity(deck.cards.len()),
-        |mut problems, problem_card| {
-            let (answer_face_index, answer_cards) = answers_faces_possible.get_random(rng);
+    let get_answers_for_card = |card: &Card, rng: &mut ThreadRng| {
+        answers_faces_possible
+            .clone()
+            .iter_shuffled(rng)
+            .find_map(|(answer_face_index, cards)| {
+                Some((card[answer_face_index].clone()?, answer_face_index, cards))
+            })
+            .unwrap()
+    };
 
-            let mut seen = vec![&problem_card[*answer_face_index]];
-            let mut answers = answer_cards
+    let mut cards_with_face = deck
+        .cards
+        .iter()
+        .filter_map(|card| Some((card[problem_face_index].clone()?, card)));
+
+    let problems_for_face = cards_with_face.try_fold(
+        Vec::with_capacity(deck.cards.len()),
+        |mut problems, (problem_face, problem_card)| {
+            let (problem_answer_face, answer_face_index, answer_cards) = get_answers_for_card(problem_card, rng);
+
+            let mut seen = vec![problem_card];
+            let mut answers = (*answer_cards)
                 .clone()
                 //NOTE: Shuffling here as well so that the filter isn't deterministic
                 //Otherwise, it would always filter out answers that appear later
                 .iter_shuffled(rng)
-                .filter(|(answer, _answer_card)| {
-                    if seen.contains(answer)
+                .filter(|(_answer, answer_card)| {
+                    if seen.contains(answer_card)
                         //TODO: Needs test case to prove works
                         //NB: Two+ decks with different face count can error, still no proof that
                         //this solves the issue
@@ -175,24 +189,23 @@ fn get_match_problems_for_deck_face<'decks>(
                     {
                         false
                     } else {
-                        seen.push(answer);
+                        seen.push(answer_card);
                         true
                     }
                 })
                 .take(3)
-                .map(|answer_and_card| (*answer_and_card, false))
+                .map(|answer_and_card| (answer_and_card.to_owned(), false))
                 .chain(std::iter::once((
-                    (&problem_card[*answer_face_index], problem_card),
+                            (problem_answer_face, problem_card),
                     true,
                 )))
                 .collect::<Vec<_>>();
 
             if answers.len() < 4 {
-                let card_face_problem = &problem_card[problem_face_index];
-                let deck_face_answer = &deck.faces[*answer_face_index];
+                let deck_face_answer = &deck.faces[answer_face_index];
 
                 return Err(FlashrError::DeckMismatchError(format!(
-                    "Not enough answers for card face \"{card_face_problem}\", using answer face \"{deck_face_answer}\""
+                    "Not enough answers for card face \"{problem_face}\", using answer face \"{deck_face_answer}\""
                 )));
             }
 
@@ -206,8 +219,8 @@ fn get_match_problems_for_deck_face<'decks>(
                 .unwrap();
 
             problems.push(MatchProblem {
-                question: (problem_card[problem_face_index].join_random(rng).unwrap(), problem_card),
-                answers: answers.into_iter().map(|((face, card), correct)| ((face.join_random(rng).unwrap(), card), correct)).collect(),
+                question: (problem_face.join_random(rng), problem_card),
+                answers: answers.into_iter().map(|((face, card), correct)| ((face.join_random(rng), card), correct)).collect(),
                 index_answer_correct,
             });
 
@@ -484,5 +497,26 @@ fn match_match_input(event: Event, state: &MatchProblemWidgetState) -> Option<Us
             .find(|(_, area)| area.contains((column, row).into()))
             .map(|(index, _)| UserInput::Answer(index)),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::deck::load_decks;
+
+    use super::get_match_problem_suite;
+
+    #[test]
+    fn test_match_problems() {
+        let decks = load_decks(vec!["./tests/deck1.json"]).unwrap();
+        let rng = &mut rand::thread_rng();
+        let suite = get_match_problem_suite(rng, &decks).unwrap();
+        for problem in suite.problems {
+            //Assert that each problem question is not present in the answers
+            assert!(problem
+                .answers
+                .iter()
+                .all(|((answer, _), _)| answer != &problem.question.0))
+        }
     }
 }

@@ -1,3 +1,4 @@
+#![feature(iter_intersperse)]
 use clap::Parser;
 use deck::{load_decks, DeckError};
 use modes::match_faces::match_cards;

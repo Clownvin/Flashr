@@ -49,19 +49,20 @@ impl Deref for Deck {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-pub struct Card(Vec<Face>);
+pub struct Card(Vec<Option<Face>>);
 
 impl Card {
     pub fn join(&self, sep: &str) -> String {
         self.iter()
-            .filter_map(Face::join)
-            .collect::<Vec<_>>()
-            .join(sep)
+            .flatten()
+            .map(Face::to_string)
+            .intersperse(sep.to_owned())
+            .collect::<String>()
     }
 }
 
 impl Deref for Card {
-    type Target = Vec<Face>;
+    type Target = Vec<Option<Face>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -70,7 +71,6 @@ impl Deref for Card {
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Face {
-    None,
     Single(String),
     Multi(Vec<String>),
 }
@@ -81,7 +81,6 @@ impl Serialize for Face {
         S: serde::Serializer,
     {
         match self {
-            Face::None => serializer.serialize_none(),
             Face::Single(face) => serializer.serialize_str(face),
             Face::Multi(faces) => {
                 let mut seq = serializer.serialize_seq(Some(faces.len()))?;
@@ -101,14 +100,6 @@ impl<'de> Visitor<'de> for FaceVisitor {
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("a string or a sequence of strings")
-    }
-
-    //NB: this is for the None case... strange it wants this vs visit_none
-    fn visit_unit<E>(self) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        Ok(Face::None)
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
@@ -145,26 +136,20 @@ impl<'de> Deserialize<'de> for Face {
 }
 
 impl Face {
-    pub fn is_none(&self) -> bool {
-        matches!(self, Face::None)
-    }
-
-    pub fn join(&self) -> Option<String> {
+    pub fn join(&self) -> String {
         match self {
-            Face::None => None,
-            Face::Single(face) => Some(face.clone()),
-            Face::Multi(faces) => Some(faces.join(", ")),
+            Face::Single(face) => face.clone(),
+            Face::Multi(faces) => faces.join(", "),
         }
     }
 
-    pub fn join_random(&self, rng: &mut ThreadRng) -> Option<String> {
+    pub fn join_random(&self, rng: &mut ThreadRng) -> String {
         match self {
-            Face::None => None,
-            Face::Single(face) => Some(face.clone()),
+            Face::Single(face) => face.clone(),
             Face::Multi(faces) => {
                 let mut faces = faces.clone();
                 faces.shuffle(rng);
-                Some(faces.join(", "))
+                faces.join(", ")
             }
         }
     }
@@ -172,10 +157,7 @@ impl Face {
 
 impl Display for Face {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{}",
-            self.join().unwrap_or("(No Face)".to_owned())
-        ))
+        f.write_fmt(format_args!("{}", self.join()))
     }
 }
 
@@ -312,15 +294,11 @@ mod tests {
     fn serialize_deck() {
         let deck: Deck = Deck {
             name: "Test".to_owned(),
-            faces: vec![
-                "Face 1".to_owned(),
-                "Face 2".to_owned(),
-                "Face 3".to_owned(),
-            ],
+            faces: vec!["Face 1".to_owned(), "Face 2".to_owned()],
             cards: vec![Card(vec![
-                Face::Single("Front".to_owned()),
-                Face::Multi(vec!["Back".to_owned(), "With many".to_owned()]),
-                Face::None,
+                Some(Face::Single("Front".to_owned())),
+                Some(Face::Multi(vec!["Back".to_owned(), "With many".to_owned()])),
+                None,
             ])],
         };
         let file = File::create("test_ser.json").unwrap();
@@ -347,7 +325,7 @@ mod tests {
         assert_eq!(deck.len(), 1);
         assert_eq!(deck.name, "Kanji Words");
         assert_eq!(deck.faces.len(), 3);
-        assert_eq!(deck[0][2], Face::Single("Japan".into()));
+        assert_eq!(deck[0][2], Some(Face::Single("Japan".into())));
         Ok(())
     }
 

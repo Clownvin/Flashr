@@ -38,17 +38,21 @@ fn main() {
                 DeckError::InvalidCard(deck, card_err) => match card_err {
                     CardError::NotEnoughFaces(card) => {
                         let front = card
-                            .first()
+                            .iter()
+                            .flatten()
+                            .take(1)
                             .map(Face::to_string)
-                            .unwrap_or("MISSING FRONT".to_owned());
-                        eprintln!("InvalidCard: NotEnoughFaces: Card with front \"{}\" does not have enough faces. Has {}, needs {}", front, card.len(), deck.faces.len())
+                            .collect::<String>();
+                        eprintln!("InvalidCard: NotEnoughFaces: Card with front \"{front}\" does not have enough faces. Has {}, needs {}", card.len(), deck.faces.len())
                     }
                     CardError::TooManyFaces(card) => {
                         let front = card
-                            .first()
+                            .iter()
+                            .flatten()
+                            .take(1)
                             .map(Face::to_string)
-                            .unwrap_or("MISSING FRONT".to_owned());
-                        eprintln!("InvalidCard: TooManyFaces: Card with front \"{}\" has too many faces. Has {}, needs {}", front, card.len(), deck.faces.len())
+                            .collect::<String>();
+                        eprintln!("InvalidCard: TooManyFaces: Card with front \"{front}\" has too many faces. Has {}, needs {}", card.len(), deck.faces.len())
                     }
                 },
                 DeckError::IoError(path, err) => {

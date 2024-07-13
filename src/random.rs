@@ -39,13 +39,13 @@ impl<'rng, T> IterShuffled<'rng> for Vec<T> {
 pub trait GetRandom {
     type Item;
 
-    fn get_random(&self, rng: &mut ThreadRng) -> &'_ Self::Item;
+    fn _get_random(&self, rng: &mut ThreadRng) -> &'_ Self::Item;
 }
 
 impl<T> GetRandom for Vec<T> {
     type Item = T;
 
-    fn get_random(&self, rng: &mut ThreadRng) -> &'_ Self::Item {
+    fn _get_random(&self, rng: &mut ThreadRng) -> &'_ Self::Item {
         &self[rng.gen_range(0..self.len())]
     }
 }
