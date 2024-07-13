@@ -20,25 +20,41 @@ const ANSWERS_PER_PROBLEM: usize = 4;
 pub fn match_cards(
     term: &mut TerminalWrapper,
     decks: Vec<Deck>,
+    problem_count: Option<usize>,
 ) -> Result<(usize, usize), FlashrError> {
     let rng = &mut rand::thread_rng();
     let problems = MatchProblemIterator::new(&decks, rng);
 
     let mut total_correct = 0;
-    let mut total = 0;
 
-    for (i, problem) in problems.enumerate() {
-        let result = show_match_problem(term, &problem?, (total_correct, i))?;
+    if let Some(count) = problem_count {
+        for problem in problems.take(count) {
+            let result = show_match_problem(term, &problem?, (total_correct, count))?;
 
-        total += 1;
-        match result {
-            ProblemResult::Correct => total_correct += 1,
-            ProblemResult::Quit => return Ok((total_correct, i)),
-            ProblemResult::Incorrect => {}
+            match result {
+                ProblemResult::Correct => total_correct += 1,
+                ProblemResult::Quit => return Ok((total_correct, count)),
+                ProblemResult::Incorrect => {}
+            }
         }
-    }
 
-    Ok((total_correct, total))
+        Ok((total_correct, count))
+    } else {
+        let mut total = 0;
+
+        for (i, problem) in problems.enumerate() {
+            let result = show_match_problem(term, &problem?, (total_correct, i))?;
+
+            total += 1;
+            match result {
+                ProblemResult::Correct => total_correct += 1,
+                ProblemResult::Quit => return Ok((total_correct, total)),
+                ProblemResult::Incorrect => {}
+            }
+        }
+
+        Ok((total_correct, total))
+    }
 }
 
 struct MatchProblemIterator<'rng, 'decks> {

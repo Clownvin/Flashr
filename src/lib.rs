@@ -15,6 +15,8 @@ mod terminal;
 #[derive(Parser, Debug)]
 #[command(name = "flashr")]
 struct FlashrCli {
+    #[arg(short = 'c', long = "count", value_name = "PROBLEM_COUNT")]
+    problem_count: Option<usize>,
     paths: Vec<String>,
 }
 
@@ -75,10 +77,13 @@ pub enum ProblemResult {
 }
 
 pub fn run() -> Result<(usize, usize), FlashrError> {
-    let cli = FlashrCli::parse();
-    let decks = load_decks(cli.paths)?;
+    let FlashrCli {
+        paths,
+        problem_count,
+    } = FlashrCli::parse();
+    let decks = load_decks(paths)?;
     let mut term = initialize_terminal()?;
-    match_cards(&mut term, decks)
+    match_cards(&mut term, decks, problem_count)
 }
 
 fn initialize_terminal() -> Result<TerminalWrapper, FlashrError> {
