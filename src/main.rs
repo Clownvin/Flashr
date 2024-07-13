@@ -1,3 +1,5 @@
+use std::process::exit;
+
 fn main() {
     let result = flashr::run();
     match result {
@@ -14,6 +16,9 @@ fn main() {
                 println!("Well done!");
             }
         }
-        Err(err) => eprintln!("{err}"),
+        Err(err) => {
+            eprintln!("{err}");
+            exit(1);
+        }
     }
 }
