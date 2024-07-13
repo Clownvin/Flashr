@@ -71,6 +71,12 @@ impl Card {
     }
 }
 
+impl Display for Card {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.join("\n"))
+    }
+}
+
 impl Deref for Card {
     type Target = Vec<Option<Face>>;
 
@@ -183,6 +189,7 @@ pub enum DeckError {
 
 #[derive(Debug)]
 pub enum CardError {
+    DuplicateFronts(Box<(Face, Card, Card)>),
     NotEnoughFaces(Card),
     TooManyFaces(Card),
 }
@@ -365,6 +372,12 @@ mod tests {
             .is_err_and(|err| matches!(err, DeckError::NotEnoughCards(_))));
         assert!(load_decks(vec!["./tests/duplicate_face.json"])
             .is_err_and(|err| matches!(err, DeckError::DuplicateFace(_, _))));
+        assert!(
+            load_decks(vec!["./tests/duplicate_card.json"]).is_err_and(|err| matches!(
+                err,
+                DeckError::InvalidCard(_, CardError::DuplicateFronts(_))
+            ))
+        );
         assert!(
             load_decks(vec!["./tests/not_enough_non_null_faces.json"]).is_err_and(|err| matches!(
                 err,

@@ -20,7 +20,7 @@ struct FlashrCli {
 
 #[derive(Debug)]
 pub enum FlashrError {
-    DeckError(DeckError),
+    DeckError(Box<DeckError>),
     UiError(UiError),
     DeckMismatchError(String),
 }
@@ -29,7 +29,7 @@ impl Display for FlashrError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let string = match self {
             FlashrError::DeckMismatchError(reason) => format!("DeckMismatch: {reason}"),
-            FlashrError::DeckError(err) => match err {
+            FlashrError::DeckError(err) => match err.as_ref() {
                 DeckError::NotEnoughCards(deck) => format!(
                     "NotEnoughCards: Deck \"{}\" does not have enough cards.",
                     deck.name
@@ -56,6 +56,10 @@ impl Display for FlashrError {
                         let required = deck.faces.len();
                         format!("InvalidCard: TooManyFaces: Card with front \"{front}\" has too many faces. Has {face_count}, needs {required}")
                     }
+                    CardError::DuplicateFronts(card_box) => {
+                        let (front, card_a, card_b) = card_box.as_ref();
+                        format!("InvalidCard: At least two cards have the same front, {front}: [{card_a}] and [{card_b}]")
+                    }
                 },
                 DeckError::IoError(path, err) => {
                     format!(
@@ -81,7 +85,7 @@ impl Display for FlashrError {
 
 impl From<DeckError> for FlashrError {
     fn from(err: DeckError) -> Self {
-        FlashrError::DeckError(err)
+        FlashrError::DeckError(Box::new(err))
     }
 }
 
