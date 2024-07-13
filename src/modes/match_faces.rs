@@ -258,6 +258,7 @@ impl StatefulWidget for MatchProblemWidget<'_> {
         Gauge::default()
             .ratio(ratio)
             .label(format!("{percent:05.2}% ({completed}/{total})"))
+            .use_unicode(true)
             .render(progress_area, buf);
     }
 }
