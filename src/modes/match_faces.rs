@@ -1,5 +1,3 @@
-use std::iter;
-
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 use ratatui::{
@@ -85,7 +83,12 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
         let problem_question = card[question_index].clone().unwrap();
         let problem_answer = card[answer_index].clone().unwrap();
 
+        let mut seen_faces = Vec::with_capacity(ANSWERS_PER_PROBLEM);
+        seen_faces.push(problem_answer.clone());
+
         let mut answer_cards = Vec::with_capacity(ANSWERS_PER_PROBLEM);
+        answer_cards.push(((problem_answer, *card), true));
+
         self.deck_cards
             .clone()
             .iter_shuffled(self.rng)
@@ -95,9 +98,10 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
                         None
                     } else {
                         card[i].clone().and_then(|face| {
-                            if face == problem_answer {
+                            if seen_faces.contains(&face) {
                                 None
                             } else {
+                                seen_faces.push(face.clone());
                                 Some(((face, card), false))
                             }
                         })
@@ -105,7 +109,6 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
                 })
             })
             .take(ANSWERS_PER_PROBLEM - 1)
-            .chain(iter::once(((problem_answer.clone(), *card), true)))
             .for_each(|answer_card| answer_cards.push(answer_card));
 
         if answer_cards.len() < ANSWERS_PER_PROBLEM {
@@ -170,7 +173,7 @@ struct MatchProblemWidgetState {
 impl Default for MatchProblemWidgetState {
     fn default() -> Self {
         Self {
-            answer_areas: [Rect::default()].repeat(4),
+            answer_areas: [Rect::default()].repeat(ANSWERS_PER_PROBLEM),
         }
     }
 }
