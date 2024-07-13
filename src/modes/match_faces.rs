@@ -94,12 +94,18 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
                     if face != answer_face {
                         None
                     } else {
-                        card[i].clone().map(|face| ((face, card), false))
+                        card[i].clone().and_then(|face| {
+                            if face == problem_answer {
+                                None
+                            } else {
+                                Some(((face, card), false))
+                            }
+                        })
                     }
                 })
             })
             .take(ANSWERS_PER_PROBLEM - 1)
-            .chain(iter::once(((problem_answer, *card), true)))
+            .chain(iter::once(((problem_answer.clone(), *card), true)))
             .for_each(|answer_card| answer_cards.push(answer_card));
 
         if answer_cards.len() < ANSWERS_PER_PROBLEM {
