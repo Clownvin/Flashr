@@ -431,6 +431,12 @@ mod tests {
             ))
         );
         assert!(
+            load_decks(vec!["./tests/duplicate_card_subfaces.json"]).is_err_and(|err| matches!(
+                err,
+                DeckError::InvalidCard(_, CardError::DuplicateFronts(_))
+            ))
+        );
+        assert!(
             load_decks(vec!["./tests/not_enough_non_null_faces.json"]).is_err_and(|err| matches!(
                 err,
                 DeckError::InvalidCard(_, CardError::NotEnoughFaces(_))
