@@ -420,12 +420,23 @@ mod test {
         let rng = &mut rand::thread_rng();
         let problems = MatchProblemIterator::new(&decks, rng);
 
-        for problem in problems.take(10) {
-            assert!(problem.is_ok_and(|problem| problem
+        for problem in problems.take(1000) {
+            let problem = problem.unwrap();
+            assert!(problem
                 .answers
                 .iter()
                 //Assert that each problem question is not present in the answers
-                .all(|((answer, _), _)| answer != &problem.question.0)))
+                .all(|((answer, _), _)| answer != &problem.question.0));
+            assert!(problem
+                .answers
+                .iter()
+                .enumerate()
+                .all(|(ref i, ((answer, _), _))| problem
+                    .answers
+                    .iter()
+                    .enumerate()
+                    .filter(|(j, _)| i != j)
+                    .all(|(_, ((other_answer, _), _))| other_answer != answer)))
         }
     }
 }
