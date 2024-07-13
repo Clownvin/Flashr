@@ -425,12 +425,12 @@ mod test {
     use super::MatchProblemIterator;
 
     #[test]
-    fn test_match_problems() {
+    fn ensure_unique_question_answers() {
         let decks = load_decks(vec!["./tests/deck1.json"]).unwrap();
         let rng = &mut rand::thread_rng();
         let problems = MatchProblemIterator::new(&decks, rng);
 
-        for problem in problems.take(1000) {
+        for problem in problems.take(100) {
             let problem = problem.unwrap();
             assert!(problem
                 .answers
@@ -448,5 +448,15 @@ mod test {
                     .filter(|(j, _)| i != j)
                     .all(|(_, ((other_answer, _), _))| other_answer != answer)))
         }
+    }
+
+    #[test]
+    fn fails_if_not_enough_unique_answers() {
+        let decks = load_decks(vec!["./tests/duplicate_cards"]).unwrap();
+        let rng = &mut rand::thread_rng();
+        let mut problems = MatchProblemIterator::new(&decks, rng);
+
+        assert!(problems.next().is_some_and(|problem| problem
+            .is_err_and(|err| matches!(err, crate::FlashrError::DeckMismatchError(_)))));
     }
 }

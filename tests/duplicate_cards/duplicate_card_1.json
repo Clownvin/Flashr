@@ -1,0 +1,11 @@
+{
+    "name": "Duplicate Cards 1",
+    "faces": ["Front", "Middle", "Back"],
+    "cards": [
+        [
+            "Front",
+            "Middle",
+            "Back"
+        ]
+    ]
+}
