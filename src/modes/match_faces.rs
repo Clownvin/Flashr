@@ -126,10 +126,10 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
             .unwrap();
 
         Some(Ok(MatchProblem {
-            question: (problem_question.join_random(self.rng), card),
+            question: (problem_question.join_random(", ", self.rng), card),
             answers: answer_cards
                 .into_iter()
-                .map(|((face, card), correct)| ((face.join_random(self.rng), card), correct))
+                .map(|((face, card), correct)| ((face.join_random(", ", self.rng), card), correct))
                 .collect(),
             answer_index,
         }))

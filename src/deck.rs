@@ -152,20 +152,20 @@ impl<'de> Deserialize<'de> for Face {
 }
 
 impl Face {
-    pub fn join(&self) -> String {
+    pub fn join(&self, sep: &str) -> String {
         match self {
             Face::Single(face) => face.clone(),
-            Face::Multi(faces) => faces.join(", "),
+            Face::Multi(faces) => faces.join(sep),
         }
     }
 
-    pub fn join_random(&self, rng: &mut ThreadRng) -> String {
+    pub fn join_random(&self, sep: &str, rng: &mut ThreadRng) -> String {
         match self {
             Face::Single(face) => face.clone(),
             Face::Multi(faces) => {
                 let mut faces = faces.clone();
                 faces.shuffle(rng);
-                faces.join(", ")
+                faces.join(sep)
             }
         }
     }
@@ -173,7 +173,7 @@ impl Face {
 
 impl Display for Face {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{}", self.join()))
+        f.write_str(&self.join(", "))
     }
 }
 
