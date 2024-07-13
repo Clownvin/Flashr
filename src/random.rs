@@ -40,6 +40,10 @@ impl<T> GetRandom for [T] {
     type Item = T;
 
     fn get_random(&self, rng: &mut ThreadRng) -> Option<&'_ Self::Item> {
-        self.get(rng.gen_range(0..self.len()))
+        match self.len() {
+            0 => None,
+            1 => self.first(),
+            len => self.get(rng.gen_range(0..len)),
+        }
     }
 }

@@ -66,7 +66,7 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
     type Item = Result<MatchProblem<'decks>, FlashrError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (deck, card) = self.deck_cards.get_random(self.rng).unwrap();
+        let (deck, card) = self.deck_cards.get_random(self.rng)?;
         let faces = deck
             .faces
             .iter()
