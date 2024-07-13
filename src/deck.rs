@@ -226,7 +226,7 @@ impl Display for DeckError {
 
 #[derive(Debug)]
 pub enum CardError {
-    DuplicateFronts(Box<(Face, Card, Card)>),
+    DuplicateFront(Box<(Face, Card, Card)>),
     EmptyFace(Card),
     NotEnoughFaces(Card, usize),
     NotEnoughUsableFaces(Card),
@@ -236,7 +236,7 @@ pub enum CardError {
 impl Display for CardError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::DuplicateFronts(card_box) => {
+            Self::DuplicateFront(card_box) => {
                 let (front, card_a, card_b) = card_box.as_ref();
                 f.write_fmt(format_args!(
                     "\"{card_a}\" and \"{card_b}\" both have the same front, {front}"
@@ -264,7 +264,7 @@ impl Display for CardError {
     }
 }
 
-pub fn load_decks<P: Into<PathBuf> + Clone>(paths: Vec<P>) -> Result<Vec<Deck>, DeckError> {
+pub fn load_decks<P: Into<PathBuf>>(paths: Vec<P>) -> Result<Vec<Deck>, DeckError> {
     let len = paths.len();
 
     paths
@@ -390,7 +390,7 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
     }) {
         return Err(DeckError::InvalidCard(
             deck,
-            CardError::DuplicateFronts(card_box),
+            CardError::DuplicateFront(card_box),
         ));
     }
 
@@ -416,7 +416,7 @@ mod tests {
                 None,
             ])],
         };
-        let file = File::create("test_ser.json").unwrap();
+        let file = File::create("./tests/test_serialize.json").unwrap();
         let writer = BufWriter::new(file);
         serde_json::to_writer(writer, &deck).unwrap();
     }
@@ -462,9 +462,21 @@ mod tests {
     }
 
     #[test]
+    fn load_decks_from_non_deck_file() {
+        let decks = load_decks(vec!["./tests/dir/another_random_file.txt"]).unwrap();
+        assert_eq!(decks.len(), 0);
+    }
+
+    #[test]
     fn load_decks_from_empty_folder() {
         let decks = load_decks(vec!["./tests/empty_dir"]).unwrap();
         assert_eq!(decks.len(), 0);
+    }
+
+    #[test]
+    fn load_decks_from_folder() {
+        let decks = load_decks(vec!["./tests/dir"]).unwrap();
+        assert_eq!(decks.len(), 2);
     }
 
     #[test]
@@ -480,40 +492,71 @@ mod tests {
     }
 
     #[test]
-    fn load_invalid_decks_from_files() {
+    fn load_deck_with_no_cards() {
+        let decks = load_decks(vec!["./tests/not_enough_cards.json"]).unwrap();
+        assert!(decks.first().is_some_and(|deck| deck.cards.is_empty()));
+    }
+
+    #[test]
+    fn load_deck_not_enough_faces() {
+        assert!(load_decks(vec!["./tests/not_enough_faces.json"])
+            .is_err_and(|err| matches!(err, DeckError::NotEnoughFaces(_))));
+    }
+
+    #[test]
+    fn load_deck_duplicate_faces() {
+        assert!(load_decks(vec!["./tests/duplicate_faces.json"])
+            .is_err_and(|err| matches!(err, DeckError::DuplicateFace(_, _))));
+    }
+
+    #[test]
+    fn load_deck_not_enough_card_faces() {
         assert!(
             load_decks(vec!["./tests/not_enough_card_faces.json"]).is_err_and(|err| matches!(
                 err,
                 DeckError::InvalidCard(_, CardError::NotEnoughFaces(_, _))
             ))
         );
+    }
+
+    #[test]
+    fn load_deck_too_many_card_faces() {
         assert!(
             load_decks(vec!["./tests/too_many_card_faces.json"]).is_err_and(|err| matches!(
                 err,
                 DeckError::InvalidCard(_, CardError::TooManyFaces(_, _))
             ))
         );
-        assert!(load_decks(vec!["./tests/not_enough_faces.json"])
-            .is_err_and(|err| matches!(err, DeckError::NotEnoughFaces(_))));
+    }
+
+    #[test]
+    fn load_deck_not_enough_usable_card_faces() {
         assert!(
-            load_decks(vec!["./tests/not_enough_non_null_faces.json"]).is_err_and(|err| matches!(
+            load_decks(vec!["./tests/not_enough_usable_card_faces.json"]).is_err_and(
+                |err| matches!(
+                    err,
+                    DeckError::InvalidCard(_, CardError::NotEnoughUsableFaces(_))
+                )
+            )
+        );
+    }
+
+    #[test]
+    fn load_deck_duplicate_card_front() {
+        assert!(
+            load_decks(vec!["./tests/duplicate_card_front.json"]).is_err_and(|err| matches!(
                 err,
-                DeckError::InvalidCard(_, CardError::NotEnoughUsableFaces(_))
+                DeckError::InvalidCard(_, CardError::DuplicateFront(_))
             ))
         );
-        assert!(load_decks(vec!["./tests/duplicate_face.json"])
-            .is_err_and(|err| matches!(err, DeckError::DuplicateFace(_, _))));
+    }
+
+    #[test]
+    fn load_deck_duplicate_card_front_subfaced() {
         assert!(
-            load_decks(vec!["./tests/duplicate_card.json"]).is_err_and(|err| matches!(
-                err,
-                DeckError::InvalidCard(_, CardError::DuplicateFronts(_))
-            ))
-        );
-        assert!(
-            load_decks(vec!["./tests/duplicate_card_subfaces.json"]).is_err_and(|err| matches!(
-                err,
-                DeckError::InvalidCard(_, CardError::DuplicateFronts(_))
-            ))
+            load_decks(vec!["./tests/duplicate_card_front_subfaced.json"]).is_err_and(
+                |err| matches!(err, DeckError::InvalidCard(_, CardError::DuplicateFront(_)))
+            )
         );
     }
 }
