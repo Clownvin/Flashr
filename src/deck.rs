@@ -296,6 +296,29 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
         ));
     }
 
+    if let Some(card_box) = deck.iter().enumerate().find_map(|(i, card_a)| {
+        card_a.front().and_then(|front_a| {
+            deck.iter().enumerate().find_map(|(j, card_b)| {
+                if i != j {
+                    card_b.front().and_then(|front_b| {
+                        if front_a == front_b {
+                            Some(Box::new((front_a.clone(), card_a.clone(), card_b.clone())))
+                        } else {
+                            None
+                        }
+                    })
+                } else {
+                    None
+                }
+            })
+        })
+    }) {
+        return Err(DeckError::InvalidCard(
+            deck,
+            CardError::DuplicateFronts(card_box),
+        ));
+    }
+
     Ok(deck)
 }
 
