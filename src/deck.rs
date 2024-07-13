@@ -73,7 +73,7 @@ impl Card {
 
 impl Display for Card {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.join("\n"))
+        f.write_str(&serde_json::to_string(self).unwrap())
     }
 }
 
@@ -91,14 +91,50 @@ pub enum Face {
     Multi(Vec<String>),
 }
 
+impl Face {
+    pub fn join(&self, sep: &str) -> String {
+        match self {
+            Self::Single(face) => face.clone(),
+            Self::Multi(faces) => faces.join(sep),
+        }
+    }
+
+    pub fn join_random(&self, sep: &str, rng: &mut ThreadRng) -> String {
+        match self {
+            Self::Single(face) => face.clone(),
+            Self::Multi(faces) => {
+                let mut faces = faces.clone();
+                faces.shuffle(rng);
+                faces.join(sep)
+            }
+        }
+    }
+
+    pub fn is_multi_and<F>(&self, func: F) -> bool
+    where
+        F: FnOnce(&[String]) -> bool,
+    {
+        match self {
+            Self::Multi(vec) => func(vec),
+            Self::Single(_) => false,
+        }
+    }
+}
+
+impl Display for Face {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.join(", "))
+    }
+}
+
 impl Serialize for Face {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         match self {
-            Face::Single(face) => serializer.serialize_str(face),
-            Face::Multi(faces) => {
+            Self::Single(face) => serializer.serialize_str(face),
+            Self::Multi(faces) => {
                 let mut seq = serializer.serialize_seq(Some(faces.len()))?;
                 for face in faces {
                     seq.serialize_element(face)?;
@@ -151,47 +187,75 @@ impl<'de> Deserialize<'de> for Face {
     }
 }
 
-impl Face {
-    pub fn join(&self, sep: &str) -> String {
-        match self {
-            Face::Single(face) => face.clone(),
-            Face::Multi(faces) => faces.join(sep),
-        }
-    }
-
-    pub fn join_random(&self, sep: &str, rng: &mut ThreadRng) -> String {
-        match self {
-            Face::Single(face) => face.clone(),
-            Face::Multi(faces) => {
-                let mut faces = faces.clone();
-                faces.shuffle(rng);
-                faces.join(sep)
-            }
-        }
-    }
-}
-
-impl Display for Face {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.join(", "))
-    }
-}
-
 #[derive(Debug)]
 pub enum DeckError {
     IoError(PathBuf, std::io::Error),
     SerdeError(PathBuf, serde_json::Error),
     NotEnoughFaces(Deck),
-    NotEnoughCards(Deck),
     DuplicateFace(Deck, String),
     InvalidCard(Deck, CardError),
+}
+
+impl Display for DeckError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::IoError(path, err) => f.write_fmt(format_args!(
+                "IoError: {err}, path: {}",
+                path.to_str().unwrap_or("unknown")
+            )),
+            Self::SerdeError(path, err) => f.write_fmt(format_args!(
+                "SerdeError: {err}, path: {}",
+                path.to_str().unwrap_or("unknown")
+            )),
+            Self::NotEnoughFaces(deck) => f.write_fmt(format_args!(
+                "NotEnoughFaces: Deck \"{}\" does not have enough faces. Requires two, has {}",
+                deck.name,
+                deck.faces.len()
+            )),
+            Self::DuplicateFace(deck, face) => f.write_fmt(format_args!(
+                "DuplicateFaces: Deck \"{}\" has more than one \"{face}\" face",
+                deck.name
+            )),
+            Self::InvalidCard(deck, err) => f.write_fmt(format_args!(
+                "InvalidCard: Deck \"{}\" contains an invalid card: {err}",
+                deck.name
+            )),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub enum CardError {
     DuplicateFronts(Box<(Face, Card, Card)>),
-    NotEnoughFaces(Card),
-    TooManyFaces(Card),
+    EmptyFace(Card),
+    NotEnoughFaces(Card, usize),
+    TooManyFaces(Card, usize),
+}
+
+impl Display for CardError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::DuplicateFronts(card_box) => {
+                let (front, card_a, card_b) = card_box.as_ref();
+                f.write_fmt(format_args!(
+                    "\"{card_a}\" and \"{card_b}\" both have the same front, {front}"
+                ))
+            }
+            Self::EmptyFace(card) => {
+                f.write_fmt(format_args!("\"{card}\" has at least one empty face"))
+            }
+            Self::NotEnoughFaces(card, expected) => {
+                let front = card.front_string();
+                let face_count = card.len();
+                f.write_fmt(format_args!("Card with front \"{front}\" does not have enough faces. Has {face_count}, needs {expected}"))
+            }
+            Self::TooManyFaces(card, expected) => {
+                let front = card.front_string();
+                let face_count = card.len();
+                f.write_fmt(format_args!("Card with front \"{front}\" has too many faces. Has {face_count}, needs {expected}"))
+            }
+        }
+    }
 }
 
 pub fn load_decks<P: Into<PathBuf> + Clone>(paths: Vec<P>) -> Result<Vec<Deck>, DeckError> {
@@ -249,10 +313,6 @@ fn load_deck_from_file(path: PathBuf) -> Result<Deck, DeckError> {
 const MIN_FACE_COUNT: usize = 2;
 
 fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
-    if deck.cards.is_empty() {
-        return Err(DeckError::NotEnoughCards(deck));
-    }
-
     let expected_face_count = deck.faces.len();
 
     if expected_face_count < MIN_FACE_COUNT {
@@ -278,22 +338,31 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
         return Err(DeckError::InvalidCard(
             deck,
             if card.len() > expected_face_count {
-                CardError::TooManyFaces(card)
+                CardError::TooManyFaces(card, expected_face_count)
             } else {
-                CardError::NotEnoughFaces(card)
+                CardError::NotEnoughFaces(card, expected_face_count)
             },
         ));
     }
 
     if let Some(card) = deck
         .iter()
-        .find(|card| card.iter().filter(|face| !face.is_none()).count() <= 1)
+        .find(|card| card.iter().flatten().count() < MIN_FACE_COUNT)
     {
         let card = card.clone();
         return Err(DeckError::InvalidCard(
             deck,
-            CardError::NotEnoughFaces(card),
+            CardError::NotEnoughFaces(card, MIN_FACE_COUNT),
         ));
+    }
+
+    if let Some(card) = deck.iter().find(|card| {
+        card.iter()
+            .flatten()
+            .any(|face| face.is_multi_and(|faces| faces.is_empty()))
+    }) {
+        let card = card.clone();
+        return Err(DeckError::InvalidCard(deck, CardError::EmptyFace(card)));
     }
 
     if let Some(card_box) = deck.iter().enumerate().find_map(|(i, card_a)| {
@@ -409,19 +478,18 @@ mod tests {
         assert!(
             load_decks(vec!["./tests/not_enough_card_faces.json"]).is_err_and(|err| matches!(
                 err,
-                DeckError::InvalidCard(_, CardError::NotEnoughFaces(_))
+                DeckError::InvalidCard(_, CardError::NotEnoughFaces(_, _))
             ))
         );
         assert!(
             load_decks(vec!["./tests/too_many_card_faces.json"]).is_err_and(|err| matches!(
                 err,
-                DeckError::InvalidCard(_, CardError::TooManyFaces(_))
+                DeckError::InvalidCard(_, CardError::TooManyFaces(_, _))
             ))
         );
         assert!(load_decks(vec!["./tests/not_enough_faces.json"])
             .is_err_and(|err| matches!(err, DeckError::NotEnoughFaces(_))));
-        assert!(load_decks(vec!["./tests/not_enough_cards.json"])
-            .is_err_and(|err| matches!(err, DeckError::NotEnoughCards(_))));
+        assert!(load_decks(vec!["./tests/not_enough_cards.json"]).is_err());
         assert!(load_decks(vec!["./tests/duplicate_face.json"])
             .is_err_and(|err| matches!(err, DeckError::DuplicateFace(_, _))));
         assert!(
@@ -439,7 +507,7 @@ mod tests {
         assert!(
             load_decks(vec!["./tests/not_enough_non_null_faces.json"]).is_err_and(|err| matches!(
                 err,
-                DeckError::InvalidCard(_, CardError::NotEnoughFaces(_))
+                DeckError::InvalidCard(_, CardError::NotEnoughFaces(_, _))
             ))
         )
     }
