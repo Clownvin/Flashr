@@ -9,19 +9,26 @@ use std::{
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 use serde::{de::Visitor, ser::SerializeSeq, Deserialize, Serialize};
 
-///Example JSON:
-///```JSON
-///{
+///Represents a deck of flashcards. Each card must have the same number of faces as
+///the deck's own faces array, though any number of those faces may optionally be null/None
+///as long as at least two are non-nullish/Some. Faces may also be subdivided into subfaces
+///which will be randomized when shown as questions/answers.
+///
+///Example:
+///```
+///# use flashr::deck::Deck;
+///let json = r#"{
 ///  "name": "Kanji Words",
 ///  "faces": ["Kanji", "Hiragana", "Definition"],
 ///  "cards": [
-///    [
-///      "日本",
-///      "にほん",
-///      "Japan"
-///    ]
+///    ["日本", "にほん", "Japan"],
+///    [null, "いいえ", ["No", "Don't mention it (eg in reply to apology/praise)"]]
 ///  ]
-///}
+///}"#;
+///assert!(serde_json::from_str::<Deck>(json)
+///  .is_ok_and(|deck| {
+///    deck.name == "Kanji Words" && deck.cards.len() == 2
+///  }));
 ///```
 #[derive(Serialize, Deserialize)]
 pub struct Deck {

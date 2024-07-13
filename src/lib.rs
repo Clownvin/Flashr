@@ -68,6 +68,12 @@ impl From<std::io::Error> for UiError {
     }
 }
 
+pub enum ProblemResult {
+    Correct,
+    Incorrect,
+    Quit,
+}
+
 pub fn run() -> Result<(usize, usize), FlashrError> {
     let cli = FlashrCli::parse();
     let decks = load_decks(cli.paths)?;
@@ -77,12 +83,6 @@ pub fn run() -> Result<(usize, usize), FlashrError> {
 
 fn initialize_terminal() -> Result<TerminalWrapper, FlashrError> {
     Ok(TerminalWrapper::new().map_err(UiError::IoError)?)
-}
-
-pub enum ProblemResult {
-    Correct,
-    Incorrect,
-    Quit,
 }
 
 #[cfg(test)]
