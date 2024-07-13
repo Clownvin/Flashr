@@ -200,6 +200,7 @@ pub enum DeckError {
     SerdeError(PathBuf, serde_json::Error),
     NotEnoughFaces(Deck),
     DuplicateFace(Deck, String),
+    DuplicateDeckNames(String),
     InvalidCard(Deck, CardError),
 }
 
@@ -222,6 +223,9 @@ impl Display for DeckError {
             Self::DuplicateFace(deck, face) => f.write_fmt(format_args!(
                 "DuplicateFaces: Deck \"{}\" has more than one \"{face}\" face",
                 deck.name
+            )),
+            Self::DuplicateDeckNames(name) => f.write_fmt(format_args!(
+                "DuplicateDecks: At least two decks loaded have the same name, {name}"
             )),
             Self::InvalidCard(deck, err) => f.write_fmt(format_args!(
                 "InvalidCard: Deck \"{}\" contains an invalid card: {err}",
@@ -274,12 +278,16 @@ impl Display for CardError {
 pub fn load_decks<P: Into<PathBuf>>(paths: Vec<P>) -> Result<Vec<Deck>, DeckError> {
     let len = paths.len();
 
-    paths
+    let decks = paths
         .into_iter()
         .try_fold(Vec::with_capacity(len), |mut decks, path| {
             decks.extend(load_decks_from_path(path.into())?.into_iter().flatten());
             Ok(decks)
-        })
+        })?;
+
+    validate_decks(&decks)?;
+
+    Ok(decks)
 }
 
 fn load_decks_from_path(path: PathBuf) -> Result<Option<Vec<Deck>>, DeckError> {
@@ -404,6 +412,26 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
     Ok(deck)
 }
 
+fn validate_decks(decks: &[Deck]) -> Result<(), DeckError> {
+    let deck_names = decks.iter().map(|deck| &deck.name).collect::<Vec<_>>();
+
+    if let Some(name) = deck_names.iter().enumerate().find_map(|(i, deck_a)| {
+        if deck_names
+            .iter()
+            .enumerate()
+            .any(|(j, deck_b)| i != j && deck_a == deck_b)
+        {
+            Some(deck_a)
+        } else {
+            None
+        }
+    }) {
+        return Err(DeckError::DuplicateDeckNames((*name).clone()));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::{fs::File, io::BufWriter};
@@ -460,6 +488,12 @@ mod tests {
         ])
         .unwrap();
         assert_eq!(decks.len(), 3);
+    }
+
+    #[test]
+    fn load_decks_duplicate_deck_names() {
+        assert!(load_decks(vec!["./tests/duplicate_deck_names"])
+            .is_err_and(|err| matches!(err, DeckError::DuplicateDeckNames(_))))
     }
 
     #[test]

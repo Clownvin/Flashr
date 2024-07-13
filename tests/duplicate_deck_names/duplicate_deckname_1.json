@@ -1,0 +1,11 @@
+{
+    "name": "Duplicate Deck Name",
+    "faces": ["Front", "Middle", "Back"],
+    "cards": [
+        [
+            "Front",
+            "Middle",
+            "Back"
+        ]
+    ]
+}
