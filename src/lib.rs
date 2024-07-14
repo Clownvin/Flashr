@@ -82,12 +82,8 @@ pub fn run() -> Result<(usize, usize), FlashrError> {
         problem_count,
     } = FlashrCli::parse();
     let decks = load_decks(paths)?;
-    let mut term = initialize_terminal()?;
+    let mut term = TerminalWrapper::new().map_err(UiError::IoError)?;
     match_cards(&mut term, decks, problem_count)
-}
-
-fn initialize_terminal() -> Result<TerminalWrapper, FlashrError> {
-    Ok(TerminalWrapper::new().map_err(UiError::IoError)?)
 }
 
 #[cfg(test)]
