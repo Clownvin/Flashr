@@ -1,0 +1,12 @@
+{
+    "name": "Example",
+    "faces": ["Front", "Middle", "Back"],
+    "cards": [
+        ["Front 1", "Middle 1", "Back 1"],
+        [["Front 2, 1", "Front 2, 3"], ["Middle 2, 1", "Middle 2, 2"], "Back 2"],
+        [null, "Middle 3", ["Back 3, 1", "Back 3, 2", "Back 3, 3"]],
+        [["Front 4"], null, "Back 4"],
+        ["Front 5", "Middle 5", "Back 5"]
+    ]
+}
+

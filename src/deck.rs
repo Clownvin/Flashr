@@ -498,7 +498,7 @@ mod tests {
 
     #[test]
     fn load_decks_from_file() {
-        let decks = load_decks(vec!["./tests/deck1.json"]).unwrap();
+        let decks = load_decks(vec!["./tests/example.json"]).unwrap();
         assert_eq!(decks.len(), 1);
     }
 
