@@ -1,5 +1,5 @@
 #![feature(iter_intersperse)]
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use clap::Parser;
 use deck::{load_decks, Deck, DeckError};
@@ -28,7 +28,40 @@ struct FlashrCli {
         long_help = "Faces to show questions for. Example Usage: flashr -f Front -f Back ./decks"
     )]
     faces: Option<Vec<String>>,
+    #[arg(short = 'm', long = "mode", default_value_t = Mode::Match, value_name = "MODE")]
+    mode: Mode,
     paths: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+enum Mode {
+    Match,
+    Type,
+}
+
+impl FromStr for Mode {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.to_lowercase();
+
+        if s == "match" {
+            Ok(Self::Match)
+        } else if s == "type" {
+            Ok(Self::Type)
+        } else {
+            Err(format!("Mode argument not recognized: {s}"))
+        }
+    }
+
+    type Err = String;
+}
+
+impl Display for Mode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Mode::Match => "match",
+            Mode::Type => "type",
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -138,7 +171,11 @@ pub fn run() -> Result<(usize, usize), FlashrError> {
     let mut term = TerminalWrapper::new().map_err(UiError::IoError)?;
     let args = ModeArguments::new(decks, cli.problem_count, cli.faces);
     args.validate()?;
-    match_cards(&mut term, args)
+
+    match cli.mode {
+        Mode::Match => match_cards(&mut term, args),
+        Mode::Type => todo!(),
+    }
 }
 
 #[cfg(test)]
