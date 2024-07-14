@@ -1,9 +1,6 @@
 # TODOs
-- [ ] Test and error if loaded Decks with same names
-- [ ] Center text vertically
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
     - MVP mode should be called "match"
-- [ ] Program Argument: "fields" - which fields to test on
 - [ ] Additional mode: "mixed" - Random mix of all (non-flash) modes. Probably needs to implement a "count" argument for num times to test, as well as changing how problem generation works.
 - [ ] Prevent the same problem card twice in a row
 - [ ] Scroll boxes for dialogue which exceeds sizes
@@ -22,6 +19,7 @@
     - [x] Create tests based on what the faces "are". Eg, match Kanji with other Kanji and Hiragana with other Hiragana, but based on faces rather than face index
     - [x] Check to ensure each card face has at least 3 (or number of other answers) other cards with non-equal faces
         - [ ] Tested
+- [ ] Center text vertically (Not sure is possible/worth atm)
 - [x] Do not show answers which are same (eg same kana for a kanji)
 - [x] Add validation error ensuring all "faces" are unique per deck
 - [x] Better error handling (match errors and print message rather than panicing on unwrap)
@@ -30,3 +28,5 @@
 - [x] Refresh on resize
 - [x] Mouse support
 - [x] Refactor into infinite iterator
+- [x] Test and error if loaded Decks with same names
+- [x] Program Argument: "faces" - which faces to test on

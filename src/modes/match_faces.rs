@@ -12,22 +12,21 @@ use crate::{
     event::{clear_and_match_event, UserInput},
     random::{GetRandom, IterShuffled},
     terminal::TerminalWrapper,
-    FlashrError, ProblemResult,
+    FlashrError, ModeArguments, ProblemResult,
 };
 
 const ANSWERS_PER_PROBLEM: usize = 4;
 
 pub fn match_cards(
     term: &mut TerminalWrapper,
-    decks: Vec<Deck>,
-    problem_count: Option<usize>,
+    args: ModeArguments,
 ) -> Result<(usize, usize), FlashrError> {
     let rng = &mut rand::thread_rng();
-    let problems = MatchProblemIterator::new(&decks, rng);
+    let problems = MatchProblemIterator::new(&args.decks, args.faces, rng);
 
     let mut total_correct = 0;
 
-    if let Some(count) = problem_count {
+    if let Some(count) = args.problem_count {
         for problem in problems.take(count) {
             let result = show_match_problem(term, &problem?, (total_correct, count))?;
 
@@ -60,21 +59,36 @@ pub fn match_cards(
 struct MatchProblemIterator<'rng, 'decks> {
     rng: &'rng mut ThreadRng,
     deck_cards: Vec<(&'decks Deck, &'decks Card)>,
+    faces: Option<Vec<String>>,
 }
 
 impl<'rng, 'decks> MatchProblemIterator<'rng, 'decks> {
-    fn new(decks: &'decks [Deck], rng: &'rng mut ThreadRng) -> Self {
+    fn new(decks: &'decks [Deck], faces: Option<Vec<String>>, rng: &'rng mut ThreadRng) -> Self {
         let mut deck_cards = Vec::with_capacity(decks.iter().fold(0, |total, deck| {
             total + (deck.cards.len() * deck.faces.len())
         }));
 
         for deck in decks {
             for card in deck.cards.iter() {
-                deck_cards.push((deck, card));
+                if let Some(faces) = faces.as_ref() {
+                    if deck.faces.iter().enumerate().any(|(i, face)| {
+                        card[i].is_some() && faces.iter().any(|specified| specified == face)
+                    }) {
+                        deck_cards.push((deck, card));
+                    } else {
+                        // Don't push, no matching faces
+                    }
+                } else {
+                    deck_cards.push((deck, card));
+                }
             }
         }
 
-        Self { rng, deck_cards }
+        Self {
+            rng,
+            deck_cards,
+            faces,
+        }
     }
 }
 
@@ -83,18 +97,45 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let (deck, card) = self.deck_cards.get_random(self.rng)?;
-        let faces = deck
+        let possible_faces = deck
             .faces
             .iter()
             .enumerate()
             .filter(|(i, _)| card[*i].is_some())
-            .collect::<Vec<_>>()
-            .iter_shuffled(self.rng)
-            .take(2)
             .collect::<Vec<_>>();
 
-        let (question_index, question_face) = faces[0];
-        let (answer_index, answer_face) = faces[1];
+        let ((question_index, question_face), (answer_index, answer_face)) =
+            match self.faces.as_ref() {
+                Some(faces) => {
+                    let mut buffer = Vec::with_capacity(possible_faces.len());
+                    possible_faces
+                        .iter()
+                        .filter(|(_, face)| faces.iter().any(|specified| face == &specified))
+                        .for_each(|face| buffer.push(face));
+
+                    let question = buffer.get_random(self.rng).unwrap();
+                    let (question_index, _) = question;
+
+                    let mut buffer = Vec::with_capacity(possible_faces.len() - 1);
+                    possible_faces
+                        .iter()
+                        .filter(|(i, _)| i != question_index)
+                        .for_each(|face| buffer.push(face));
+
+                    let answer = buffer.get_random(self.rng).unwrap();
+
+                    (**question, **answer)
+                }
+                None => {
+                    //TODO: Benchmark against just looping get_random to see which is faster.
+                    //Cloning the faces could be more expensive
+                    let faces = possible_faces
+                        .iter_shuffled(self.rng)
+                        .take(2)
+                        .collect::<Vec<_>>();
+                    (faces[0], faces[1])
+                }
+            };
 
         let problem_question = card[question_index].clone().unwrap();
         let problem_answer = card[answer_index].clone().unwrap();
@@ -129,7 +170,7 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
 
         if answer_cards.len() < ANSWERS_PER_PROBLEM {
             let deck = &deck.name;
-            return Some(Err(FlashrError::DeckMismatchError(format!("Cannot find enough answers for question {problem_question}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
+            return Some(Err(FlashrError::DeckMismatch(format!("Cannot find enough answers for question {problem_question}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
         }
 
         answer_cards.shuffle(self.rng);
@@ -444,7 +485,7 @@ mod test {
     fn ensure_unique_question_answers() {
         let decks = load_decks(vec!["./tests/deck1.json"]).unwrap();
         let rng = &mut rand::thread_rng();
-        let problems = MatchProblemIterator::new(&decks, rng);
+        let problems = MatchProblemIterator::new(&decks, None, rng);
 
         for problem in problems.take(100) {
             let problem = problem.unwrap();
@@ -470,9 +511,11 @@ mod test {
     fn fails_if_not_enough_unique_answers() {
         let decks = load_decks(vec!["./tests/duplicate_cards"]).unwrap();
         let rng = &mut rand::thread_rng();
-        let mut problems = MatchProblemIterator::new(&decks, rng);
+        let mut problems = MatchProblemIterator::new(&decks, None, rng);
 
-        assert!(problems.next().is_some_and(|problem| problem
-            .is_err_and(|err| matches!(err, crate::FlashrError::DeckMismatchError(_)))));
+        assert!(problems
+            .next()
+            .is_some_and(|problem| problem
+                .is_err_and(|err| matches!(err, crate::FlashrError::DeckMismatch(_)))));
     }
 }
