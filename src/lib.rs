@@ -21,7 +21,12 @@ type ProblemCount = Option<usize>;
 struct FlashrCli {
     #[arg(short = 'c', long = "count", value_name = "PROBLEM_COUNT")]
     problem_count: Option<usize>,
-    #[arg(short = 'f', long = "faces", value_name = "[FACE_1, [...FACE_N]]")]
+    #[arg(
+        short = 'f',
+        long = "faces",
+        value_name = "[...FACE_N]",
+        long_help = "Faces to show questions for. Example Usage: flashr -f Front -f Back ./decks"
+    )]
     faces: Option<Vec<String>>,
     paths: Vec<String>,
 }
