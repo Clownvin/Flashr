@@ -68,17 +68,30 @@ impl<'rng, 'decks> MatchProblemIterator<'rng, 'decks> {
             total + (deck.cards.len() * deck.faces.len())
         }));
 
-        for deck in decks {
-            for card in deck.cards.iter() {
-                if let Some(faces) = faces.as_ref() {
-                    if deck.faces.iter().enumerate().any(|(i, face)| {
-                        card[i].is_some() && faces.iter().any(|specified| specified == face)
-                    }) {
-                        deck_cards.push((deck, card));
-                    } else {
-                        // Don't push, no matching faces
-                    }
+        if let Some(faces) = faces.as_ref() {
+            for deck in decks {
+                let mut deck_faces = Vec::with_capacity(deck.faces.len());
+                deck.faces
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, deck_face)| faces.iter().any(|face| face == *deck_face))
+                    .for_each(|(i, _)| deck_faces.push(i));
+
+                if deck_faces.is_empty() {
+                    continue;
                 } else {
+                    for card in deck.cards.iter() {
+                        if deck_faces.iter().any(|i| card[*i].is_some()) {
+                            deck_cards.push((deck, card));
+                        } else {
+                            // Don't push, no matching faces
+                        }
+                    }
+                }
+            }
+        } else {
+            for deck in decks {
+                for card in deck.cards.iter() {
                     deck_cards.push((deck, card));
                 }
             }

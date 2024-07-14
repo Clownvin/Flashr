@@ -117,21 +117,6 @@ impl ModeArguments {
     //TODO add and test logic to make sure that each face asked for appears in some deck
     //TODO add and test logic to make sure that each face has at least one problem?
     fn validate(&self) -> Result<(), ArgError> {
-        if let Some(faces) = self.faces.as_ref() {
-            if let Some(deck) = self.decks.iter().find(|deck| {
-                deck.faces
-                    .iter()
-                    .filter(|deck_face| faces.iter().any(|face| face == *deck_face))
-                    .count()
-                    == 0
-            }) {
-                return Err(ArgError::DeckNotEnoughFaces(
-                    faces.clone(),
-                    deck.name.clone(),
-                ));
-            }
-        }
-
         Ok(())
     }
 }
@@ -153,34 +138,11 @@ pub fn run() -> Result<(usize, usize), FlashrError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{deck::load_decks, ArgError, FlashrCli, ModeArguments};
+    use crate::FlashrCli;
 
     #[test]
     fn verify_cli() {
         use clap::CommandFactory;
         FlashrCli::command().debug_assert();
-    }
-
-    #[test]
-    fn verify_enough_faces() {
-        let decks = load_decks(vec!["./tests/example.json", "./tests/deck1.json"]).unwrap();
-        let args = ModeArguments::new(decks, None, None);
-        assert!(args.validate().is_ok());
-    }
-
-    #[test]
-    fn verify_enough_faces_specified() {
-        let decks = load_decks(vec!["./tests/example.json", "./tests/deck_subfaces.json"]).unwrap();
-        let args = ModeArguments::new(decks, None, Some(vec!["Front".to_owned()]));
-        assert!(args.validate().is_ok());
-    }
-
-    #[test]
-    fn verify_not_enough_faces_specified() {
-        let decks = load_decks(vec!["./tests/example.json", "./tests/deck1.json"]).unwrap();
-        let args = ModeArguments::new(decks, None, Some(vec!["Front".to_owned()]));
-        assert!(args
-            .validate()
-            .is_err_and(|err| matches!(err, ArgError::DeckNotEnoughFaces(_, _))));
     }
 }
