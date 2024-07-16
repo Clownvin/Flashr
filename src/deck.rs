@@ -72,9 +72,7 @@ impl Card {
     }
 
     pub fn front_string(&self) -> String {
-        self.front()
-            .map(Face::to_string)
-            .unwrap_or("MISSING_FRONT".to_owned())
+        self.front().map(Face::to_string).unwrap()
     }
 }
 
@@ -89,6 +87,23 @@ impl Deref for Card {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CardId(String);
+
+impl Deref for CardId {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Card> for CardId {
+    fn from(card: Card) -> Self {
+        Self(card.front_string())
     }
 }
 
