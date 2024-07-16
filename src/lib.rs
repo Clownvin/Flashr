@@ -32,7 +32,7 @@ struct FlashrCli {
     faces: Option<Vec<String>>,
     #[arg(short = 'm', long = "mode", default_value_t = Mode::Match, value_name = "MODE", help = "Program mode", long_help = MODE_HELP)]
     mode: Mode,
-    #[arg(last = true, help = "Deck JSON file/dir paths", long_help = PATHS_HELP)]
+    #[arg(help = "Deck JSON file/dir paths", long_help = PATHS_HELP)]
     paths: Vec<String>,
 }
 
