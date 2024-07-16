@@ -3,7 +3,7 @@ use std::{fmt::Display, str::FromStr};
 
 use clap::Parser;
 use deck::{load_decks, Card, Deck, DeckError};
-use modes::match_faces::match_faces;
+use modes::{match_faces::match_faces, type_faces::type_faces};
 use terminal::TerminalWrapper;
 
 pub mod deck;
@@ -21,7 +21,7 @@ pub fn run() -> Result<ModeResult, FlashrError> {
 
     match cli.mode {
         Mode::Match => match_faces(term, args),
-        Mode::Type => todo!(),
+        Mode::Type => type_faces(term, args),
     }
 }
 
@@ -147,6 +147,45 @@ enum ProblemResult {
     Correct,
     Incorrect,
     Quit,
+}
+
+enum QuestionAnswerBuilder<T> {
+    None,
+    HasQuestion(T),
+    HasAnswer(T, T),
+}
+
+impl<T> QuestionAnswerBuilder<T> {
+    fn give(self, some: T) -> Self {
+        match self {
+            Self::None => Self::HasQuestion(some),
+            Self::HasQuestion(q) => Self::HasAnswer(q, some),
+            _ => self,
+        }
+    }
+
+    fn get(self) -> Option<(T, T)> {
+        match self {
+            Self::HasAnswer(q, a) => Some((q, a)),
+            _ => None,
+        }
+    }
+}
+
+impl<T> Default for QuestionAnswerBuilder<T> {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl<T> FromIterator<T> for QuestionAnswerBuilder<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut builder = Self::default();
+        for item in iter {
+            builder = builder.give(item);
+        }
+        builder
+    }
 }
 
 #[derive(Debug)]
