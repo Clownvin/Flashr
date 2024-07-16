@@ -1,11 +1,12 @@
 #![feature(iter_intersperse)]
+use clap::Parser;
 use std::{fmt::Display, ops::Deref, str::FromStr};
 
-use clap::Parser;
 use deck::{load_decks, Card, Deck, DeckError};
 use modes::{match_faces::match_faces, type_faces::type_faces};
 use terminal::TerminalWrapper;
 
+mod cli;
 pub mod deck;
 mod event;
 mod modes;
@@ -13,7 +14,7 @@ mod random;
 mod terminal;
 
 pub fn run() -> Result<ModeResult, FlashrError> {
-    let cli = FlashrCli::parse();
+    let cli = cli::FlashrCli::parse();
     let decks = load_decks(cli.paths)?;
     let term = TerminalWrapper::new().map_err(UiError::IoError)?;
     let args = ModeArguments::new(&decks, cli.problem_count, cli.faces);
@@ -25,38 +26,10 @@ pub fn run() -> Result<ModeResult, FlashrError> {
     }
 }
 
-type Decks = Vec<Deck>;
 type Faces = Option<Vec<String>>;
 type ProblemCount = Option<usize>;
 type ModeResult = (usize, usize);
 type FaceAndCard<'a> = (String, &'a Card);
-
-#[derive(Parser, Debug)]
-#[command(name = "flashr")]
-struct FlashrCli {
-    #[arg(short = 'c', long = "count", value_name = "PROBLEM_COUNT", help = "Number of problems to show.", long_help = COUNT_HELP)]
-    problem_count: Option<usize>,
-    #[arg(
-        short = 'f',
-        long = "faces",
-        value_name = "[...FACE_N]",
-        help = "Faces to show problems for.",
-        long_help = FACES_HELP
-    )]
-    faces: Option<Vec<String>>,
-    #[arg(short = 'm', long = "mode", default_value_t = Mode::Match, value_name = "MODE", help = "Program mode", long_help = MODE_HELP)]
-    mode: Mode,
-    #[arg(help = "Deck JSON file/dir paths", long_help = PATHS_HELP)]
-    paths: Vec<String>,
-}
-
-const COUNT_HELP: &str = r#"Number of problems to show. If omitted, will continue indefinitely."#;
-const FACES_HELP: &str = r#"Faces to show problems for.
-Example Usage: flashr -f Front -f Back ./decks"#;
-const MODE_HELP: &str = r#"Possible values:
-    match   - Multiple choice matching problems
-    type    - Shown a face, and asked to type the answer"#;
-const PATHS_HELP: &str = r#"Paths to load decks from. Can be individual files or directories."#;
 
 #[derive(Clone, Debug)]
 enum Mode {
@@ -96,7 +69,7 @@ struct ModeArguments<'a> {
 }
 
 impl<'a> ModeArguments<'a> {
-    fn new(decks: &'a Decks, problem_count: ProblemCount, faces: Faces) -> Self {
+    fn new(decks: &'a [Deck], problem_count: ProblemCount, faces: Faces) -> Self {
         let mut deck_cards = Vec::with_capacity(decks.iter().fold(0, |total, deck| {
             total + (deck.cards.len() * deck.faces.len())
         }));
@@ -246,11 +219,12 @@ impl Display for ArgError {
 
 #[cfg(test)]
 mod tests {
-    use crate::FlashrCli;
+    use clap::CommandFactory;
+
+    use crate::cli;
 
     #[test]
     fn verify_cli() {
-        use clap::CommandFactory;
-        FlashrCli::command().debug_assert();
+        cli::FlashrCli::command().debug_assert();
     }
 }
