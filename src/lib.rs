@@ -2,8 +2,8 @@
 use std::{fmt::Display, str::FromStr};
 
 use clap::Parser;
-use deck::{load_decks, Deck, DeckError};
-use modes::match_faces::match_cards;
+use deck::{load_decks, Card, Deck, DeckError};
+use modes::match_faces::match_faces;
 use terminal::TerminalWrapper;
 
 pub mod deck;
@@ -15,6 +15,7 @@ mod terminal;
 type Decks = Vec<Deck>;
 type Faces = Option<Vec<String>>;
 type ProblemCount = Option<usize>;
+type ModeResult = (usize, usize);
 
 #[derive(Parser, Debug)]
 #[command(name = "flashr")]
@@ -147,18 +148,50 @@ impl Display for ArgError {
     }
 }
 
-struct ModeArguments {
-    decks: Decks,
+struct ModeArguments<'a> {
     problem_count: ProblemCount,
     faces: Faces,
+    deck_cards: Vec<(&'a Deck, &'a Card)>,
 }
 
-impl ModeArguments {
-    fn new(decks: Decks, problem_count: ProblemCount, faces: Faces) -> Self {
+impl<'a> ModeArguments<'a> {
+    fn new(decks: &'a Decks, problem_count: ProblemCount, faces: Faces) -> Self {
+        let mut deck_cards = Vec::with_capacity(decks.iter().fold(0, |total, deck| {
+            total + (deck.cards.len() * deck.faces.len())
+        }));
+
+        if let Some(faces) = faces.as_ref() {
+            for deck in decks.iter() {
+                let mut deck_faces = Vec::with_capacity(deck.faces.len());
+                deck.faces
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, deck_face)| faces.iter().any(|face| face == *deck_face))
+                    .for_each(|(i, _)| deck_faces.push(i));
+
+                if deck_faces.is_empty() {
+                    continue;
+                } else {
+                    for card in deck.cards.iter() {
+                        if deck_faces.iter().any(|i| card[*i].is_some()) {
+                            deck_cards.push((deck, card));
+                        } else {
+                            // Don't push, no matching faces
+                        }
+                    }
+                }
+            }
+        } else {
+            for deck in decks.iter() {
+                for card in deck.cards.iter() {
+                    deck_cards.push((deck, card));
+                }
+            }
+        }
         Self {
-            decks,
             problem_count,
             faces,
+            deck_cards,
         }
     }
 
@@ -175,15 +208,15 @@ enum ProblemResult {
     Quit,
 }
 
-pub fn run() -> Result<(usize, usize), FlashrError> {
+pub fn run() -> Result<ModeResult, FlashrError> {
     let cli = FlashrCli::parse();
     let decks = load_decks(cli.paths)?;
-    let mut term = TerminalWrapper::new().map_err(UiError::IoError)?;
-    let args = ModeArguments::new(decks, cli.problem_count, cli.faces);
+    let term = TerminalWrapper::new().map_err(UiError::IoError)?;
+    let args = ModeArguments::new(&decks, cli.problem_count, cli.faces);
     args.validate()?;
 
     match cli.mode {
-        Mode::Match => match_cards(&mut term, args),
+        Mode::Match => match_faces(term, args),
         Mode::Type => todo!(),
     }
 }

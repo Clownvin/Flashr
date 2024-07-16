@@ -10,19 +10,20 @@ use ratatui::{
 use crate::{
     deck::{Card, Deck},
     event::{clear_and_match_event, UserInput},
-    random::{GetRandom, IterShuffled},
+    random::{GetRandom, IntoIterShuffled},
     terminal::TerminalWrapper,
-    FlashrError, ModeArguments, ProblemResult,
+    FlashrError, ModeArguments, ModeResult, ProblemResult,
 };
 
 const ANSWERS_PER_PROBLEM: usize = 4;
 
-pub fn match_cards(
-    term: &mut TerminalWrapper,
+pub fn match_faces(
+    mut term: TerminalWrapper,
     args: ModeArguments,
-) -> Result<(usize, usize), FlashrError> {
+) -> Result<ModeResult, FlashrError> {
+    let term = &mut term;
     let rng = &mut rand::thread_rng();
-    let problems = MatchProblemIterator::new(&args.decks, args.faces, rng);
+    let problems = MatchProblemIterator::new(args.deck_cards, args.faces, rng);
 
     let mut total_correct = 0;
 
@@ -56,47 +57,18 @@ pub fn match_cards(
     }
 }
 
-struct MatchProblemIterator<'rng, 'decks> {
-    rng: &'rng mut ThreadRng,
-    deck_cards: Vec<(&'decks Deck, &'decks Card)>,
+struct MatchProblemIterator<'a> {
+    rng: &'a mut ThreadRng,
+    deck_cards: Vec<(&'a Deck, &'a Card)>,
     faces: Option<Vec<String>>,
 }
 
-impl<'rng, 'decks> MatchProblemIterator<'rng, 'decks> {
-    fn new(decks: &'decks [Deck], faces: Option<Vec<String>>, rng: &'rng mut ThreadRng) -> Self {
-        let mut deck_cards = Vec::with_capacity(decks.iter().fold(0, |total, deck| {
-            total + (deck.cards.len() * deck.faces.len())
-        }));
-
-        if let Some(faces) = faces.as_ref() {
-            for deck in decks {
-                let mut deck_faces = Vec::with_capacity(deck.faces.len());
-                deck.faces
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, deck_face)| faces.iter().any(|face| face == *deck_face))
-                    .for_each(|(i, _)| deck_faces.push(i));
-
-                if deck_faces.is_empty() {
-                    continue;
-                } else {
-                    for card in deck.cards.iter() {
-                        if deck_faces.iter().any(|i| card[*i].is_some()) {
-                            deck_cards.push((deck, card));
-                        } else {
-                            // Don't push, no matching faces
-                        }
-                    }
-                }
-            }
-        } else {
-            for deck in decks {
-                for card in deck.cards.iter() {
-                    deck_cards.push((deck, card));
-                }
-            }
-        }
-
+impl<'a> MatchProblemIterator<'a> {
+    fn new(
+        deck_cards: Vec<(&'a Deck, &'a Card)>,
+        faces: Option<Vec<String>>,
+        rng: &'a mut ThreadRng,
+    ) -> Self {
         Self {
             rng,
             deck_cards,
@@ -105,17 +77,18 @@ impl<'rng, 'decks> MatchProblemIterator<'rng, 'decks> {
     }
 }
 
-impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
-    type Item = Result<MatchProblem<'decks>, FlashrError>;
+impl<'a> Iterator for MatchProblemIterator<'a> {
+    type Item = Result<MatchProblem<'a>, FlashrError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let (deck, card) = self.deck_cards.get_random(self.rng)?;
-        let possible_faces = deck
-            .faces
+
+        let mut possible_faces = Vec::with_capacity(deck.faces.len());
+        deck.faces
             .iter()
             .enumerate()
             .filter(|(i, _)| card[*i].is_some())
-            .collect::<Vec<_>>();
+            .for_each(|face| possible_faces.push(face));
 
         let ((question_index, question_face), (answer_index, answer_face)) =
             match self.faces.as_ref() {
@@ -143,7 +116,7 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
                     //TODO: Benchmark against just looping get_random to see which is faster.
                     //Cloning the faces could be more expensive
                     let faces = possible_faces
-                        .iter_shuffled(self.rng)
+                        .into_iter_shuffled(self.rng)
                         .take(2)
                         .collect::<Vec<_>>();
                     (faces[0], faces[1])
@@ -161,7 +134,7 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
 
         self.deck_cards
             .clone()
-            .iter_shuffled(self.rng)
+            .into_iter_shuffled(self.rng)
             .filter_map(|(deck, card)| {
                 deck.faces.iter().enumerate().find_map(|(i, face)| {
                     if face != answer_face {
@@ -206,23 +179,23 @@ impl<'rng, 'decks> Iterator for MatchProblemIterator<'rng, 'decks> {
     }
 }
 
-struct MatchProblem<'suite> {
-    question: FaceAndCard<'suite>,
-    answers: Vec<(FaceAndCard<'suite>, bool)>,
+struct MatchProblem<'a> {
+    question: FaceAndCard<'a>,
+    answers: Vec<(FaceAndCard<'a>, bool)>,
     answer_index: usize,
 }
 
-type FaceAndCard<'suite> = (String, &'suite Card);
+type FaceAndCard<'a> = (String, &'a Card);
 
 //NB 'suite lifetime technically not required, but I think it's more accurate
-struct MatchProblemWidget<'suite> {
-    problem: &'suite MatchProblem<'suite>,
-    progress: (usize, usize),
+struct MatchProblemWidget<'a> {
+    problem: &'a MatchProblem<'a>,
+    progress: ModeResult,
     answer: Option<(usize, bool)>,
 }
 
-impl<'suite> MatchProblemWidget<'suite> {
-    fn new(problem: &'suite MatchProblem<'suite>, progress: (usize, usize)) -> Self {
+impl<'a> MatchProblemWidget<'a> {
+    fn new(problem: &'a MatchProblem<'a>, progress: ModeResult) -> Self {
         Self {
             problem,
             progress,
@@ -412,7 +385,7 @@ impl Widget for MatchAnswerWidget {
 fn show_match_problem(
     term: &mut TerminalWrapper,
     problem: &MatchProblem,
-    progress: (usize, usize),
+    progress: ModeResult,
 ) -> Result<ProblemResult, FlashrError> {
     let widget_state = &mut MatchProblemWidgetState::default();
 
@@ -432,7 +405,7 @@ fn show_match_problem(
 fn show_match_problem_result(
     term: &mut TerminalWrapper,
     problem: &MatchProblem,
-    progress: (usize, usize),
+    progress: ModeResult,
     index_answered: usize,
 ) -> Result<ProblemResult, FlashrError> {
     let correct = index_answered == problem.answer_index;
@@ -490,15 +463,16 @@ fn match_match_input(event: Event, state: &MatchProblemWidgetState) -> Option<Us
 
 #[cfg(test)]
 mod test {
-    use crate::deck::load_decks;
+    use crate::{deck::load_decks, ModeArguments};
 
     use super::MatchProblemIterator;
 
     #[test]
     fn ensure_unique_question_answers() {
         let decks = load_decks(vec!["./tests/deck1.json"]).unwrap();
+        let args = ModeArguments::new(&decks, None, None);
         let rng = &mut rand::thread_rng();
-        let problems = MatchProblemIterator::new(&decks, None, rng);
+        let problems = MatchProblemIterator::new(args.deck_cards, args.faces, rng);
 
         for problem in problems.take(100) {
             let problem = problem.unwrap();
@@ -523,8 +497,9 @@ mod test {
     #[test]
     fn fails_if_not_enough_unique_answers() {
         let decks = load_decks(vec!["./tests/duplicate_cards"]).unwrap();
+        let args = ModeArguments::new(&decks, None, None);
         let rng = &mut rand::thread_rng();
-        let mut problems = MatchProblemIterator::new(&decks, None, rng);
+        let mut problems = MatchProblemIterator::new(args.deck_cards, args.faces, rng);
 
         assert!(problems
             .next()

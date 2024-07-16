@@ -1,18 +1,18 @@
 use rand::{rngs::ThreadRng, Rng};
 
-pub trait IterShuffled<'rng>
+pub trait IntoIterShuffled<'rng>
 where
     Self: IntoIterator,
 {
-    fn iter_shuffled(self, rng: &'rng mut ThreadRng) -> ShuffleIter<'rng, Self::Item>;
+    fn into_iter_shuffled(self, rng: &'rng mut ThreadRng) -> IntoShuffleIter<'rng, Self::Item>;
 }
 
-pub struct ShuffleIter<'rng, T> {
+pub struct IntoShuffleIter<'rng, T> {
     values: Vec<T>,
     rng: &'rng mut ThreadRng,
 }
 
-impl<T> Iterator for ShuffleIter<'_, T> {
+impl<T> Iterator for IntoShuffleIter<'_, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -24,9 +24,9 @@ impl<T> Iterator for ShuffleIter<'_, T> {
     }
 }
 
-impl<'rng, T> IterShuffled<'rng> for Vec<T> {
-    fn iter_shuffled(self, rng: &'rng mut ThreadRng) -> ShuffleIter<'rng, Self::Item> {
-        ShuffleIter { values: self, rng }
+impl<'rng, T> IntoIterShuffled<'rng> for Vec<T> {
+    fn into_iter_shuffled(self, rng: &'rng mut ThreadRng) -> IntoShuffleIter<'rng, Self::Item> {
+        IntoShuffleIter { values: self, rng }
     }
 }
 
@@ -50,7 +50,7 @@ impl<T> GetRandom for [T] {
 
 #[cfg(test)]
 mod tests {
-    use crate::random::IterShuffled;
+    use crate::random::IntoIterShuffled;
 
     use super::GetRandom;
 
@@ -105,11 +105,11 @@ mod tests {
         let rng = &mut rand::thread_rng();
 
         let mut vals = vec![];
-        assert!(vals.clone().iter_shuffled(rng).next().is_none());
+        assert!(vals.clone().into_iter_shuffled(rng).next().is_none());
 
         vals.push(1);
         for _ in 0..10 {
-            let mut iter = vals.clone().iter_shuffled(rng);
+            let mut iter = vals.clone().into_iter_shuffled(rng);
             assert!(matches!(iter.next(), Some(1)));
             assert!(iter.next().is_none());
         }
@@ -119,7 +119,7 @@ mod tests {
         const TOTAL: usize = 1000;
         for _ in 0..TOTAL {
             vals.clone()
-                .iter_shuffled(rng)
+                .into_iter_shuffled(rng)
                 .enumerate()
                 .for_each(|(i, v)| if v == 1 { seen.0 += i } else { seen.1 += i })
         }
