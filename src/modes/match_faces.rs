@@ -12,7 +12,7 @@ use crate::{
     event::{clear_and_match_event, UserInput},
     random::{GetRandom, IntoIterShuffled},
     terminal::TerminalWrapper,
-    FlashrError, ModeArguments, ModeResult, ProblemResult,
+    FaceAndCard, FlashrError, ModeArguments, ModeResult, ProblemResult, QuestionAnswerBuilder,
 };
 
 const ANSWERS_PER_PROBLEM: usize = 4;
@@ -118,8 +118,10 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                     let faces = possible_faces
                         .into_iter_shuffled(self.rng)
                         .take(2)
-                        .collect::<Vec<_>>();
-                    (faces[0], faces[1])
+                        .collect::<QuestionAnswerBuilder<_>>()
+                        .get()
+                        .unwrap();
+                    faces
                 }
             };
 
@@ -184,8 +186,6 @@ struct MatchProblem<'a> {
     answers: Vec<(FaceAndCard<'a>, bool)>,
     answer_index: usize,
 }
-
-type FaceAndCard<'a> = (String, &'a Card);
 
 //NB 'suite lifetime technically not required, but I think it's more accurate
 struct MatchProblemWidget<'a> {
