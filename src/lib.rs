@@ -1,5 +1,5 @@
 #![feature(iter_intersperse)]
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, ops::Deref, str::FromStr};
 
 use clap::Parser;
 use deck::{load_decks, Card, Deck, DeckError};
@@ -149,42 +149,25 @@ enum ProblemResult {
     Quit,
 }
 
-enum QuestionAnswerBuilder<T> {
-    None,
-    HasQuestion(T),
-    HasAnswer(T, T),
-}
+struct OptionTuple<T>(Option<(T, T)>);
 
-impl<T> QuestionAnswerBuilder<T> {
-    fn give(self, some: T) -> Self {
-        match self {
-            Self::None => Self::HasQuestion(some),
-            Self::HasQuestion(q) => Self::HasAnswer(q, some),
-            _ => self,
-        }
-    }
+impl<T> Deref for OptionTuple<T> {
+    type Target = Option<(T, T)>;
 
-    fn get(self) -> Option<(T, T)> {
-        match self {
-            Self::HasAnswer(q, a) => Some((q, a)),
-            _ => None,
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-impl<T> Default for QuestionAnswerBuilder<T> {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
-impl<T> FromIterator<T> for QuestionAnswerBuilder<T> {
+impl<T> FromIterator<T> for OptionTuple<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut builder = Self::default();
-        for item in iter {
-            builder = builder.give(item);
+        let mut iter = iter.into_iter();
+        if let Some(first) = iter.next() {
+            if let Some(second) = iter.next() {
+                return Self(Some((first, second)));
+            }
         }
-        builder
+        Self(None)
     }
 }
 

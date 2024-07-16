@@ -12,7 +12,7 @@ use crate::{
     event::{clear_and_match_event, UserInput},
     random::{GetRandom, IntoIterShuffled},
     terminal::TerminalWrapper,
-    FaceAndCard, FlashrError, ModeArguments, ModeResult, ProblemResult, QuestionAnswerBuilder,
+    FaceAndCard, FlashrError, ModeArguments, ModeResult, OptionTuple, ProblemResult,
 };
 
 const ANSWERS_PER_PROBLEM: usize = 4;
@@ -112,17 +112,10 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
 
                     (**question, **answer)
                 }
-                None => {
-                    //TODO: Benchmark against just looping get_random to see which is faster.
-                    //Cloning the faces could be more expensive
-                    let faces = possible_faces
-                        .into_iter_shuffled(self.rng)
-                        .take(2)
-                        .collect::<QuestionAnswerBuilder<_>>()
-                        .get()
-                        .unwrap();
-                    faces
-                }
+                None => possible_faces
+                    .into_iter_shuffled(self.rng)
+                    .collect::<OptionTuple<_>>()
+                    .unwrap(),
             };
 
         let problem_question = card[question_index].clone().unwrap();
