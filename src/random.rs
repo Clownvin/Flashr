@@ -195,16 +195,21 @@ impl<T> RemoveRandom for &mut WeightedList<T> {
     fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item> {
         match self.len() {
             0 => None,
-            1 => Some(self.items.swap_remove(0).into()),
+            1 => {
+                let item = self.items.swap_remove(0);
+                self.total_weight -= item.weight;
+                Some(item.into())
+            }
             _ => {
                 let val: f64 = rng.gen();
                 let mut running_total = 0.0;
 
-                for (i, weighted) in self.items.iter_mut().enumerate() {
-                    running_total += weighted.weight / self.total_weight;
+                for (i, item) in self.items.iter_mut().enumerate() {
+                    running_total += item.weight / self.total_weight;
                     if val < running_total {
-                        let weighted = self.items.swap_remove(i);
-                        return Some(weighted.into());
+                        let item = self.items.swap_remove(i);
+                        self.total_weight -= item.weight;
+                        return Some(item.into());
                     }
                 }
 
@@ -342,6 +347,21 @@ mod tests {
         assert!(
             *max as f64 / TOTAL as f64 > 0.6,
             "{max} is not around 66% of {TOTAL}"
+        );
+
+        list.add((3, 3.0));
+        let mut seen = (0, 0);
+        for _ in 0..TOTAL {
+            list.clone()
+                .into_iter_shuffled(rng)
+                .enumerate()
+                .for_each(|(i, (v, _))| if v == 3 { seen.0 += i } else { seen.1 += i })
+        }
+
+        let (min, _) = seen.min_max();
+        assert!(
+            *min as f64 / TOTAL as f64 > 0.45,
+            "{min} is not around 50% of {TOTAL}"
         );
     }
 }
