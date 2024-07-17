@@ -72,15 +72,9 @@ impl<T> GetRandom for [T] {
 
 type ItemAndWeight<T> = (T, f64);
 
-impl<T> From<WeightedItem<T>> for ItemAndWeight<T> {
-    fn from(value: WeightedItem<T>) -> Self {
-        (value.item, value.weight)
-    }
-}
-
 #[derive(Clone)]
 struct WeightedList<T> {
-    items: Vec<WeightedItem<T>>,
+    items: Vec<ItemAndWeight<T>>,
     total_weight: f64,
 }
 
@@ -92,9 +86,9 @@ impl<T> WeightedList<T> {
         }
     }
 
-    fn add(&mut self, item: impl Into<WeightedItem<T>>) {
+    fn add(&mut self, item: impl Into<ItemAndWeight<T>>) {
         let item = item.into();
-        let weight = item.weight;
+        let weight = item.1;
         assert!(
             weight >= 0.0,
             "item weight must be greater than or equal to zero, given: {weight}"
@@ -111,8 +105,10 @@ impl<T> WeightedList<T> {
             .items
             .iter()
             .enumerate()
-            .find(|(_, weighted)| &weighted.item == item)?;
-        Some(self.items.swap_remove(item_index).into())
+            .find(|(_, weighted)| &weighted.0 == item)?;
+        let item = self.items.swap_remove(item_index);
+        self.total_weight -= item.1;
+        Some(item.into())
     }
 
     fn with_capacity(capacity: usize) -> Self {
@@ -127,9 +123,9 @@ impl<T> WeightedList<T> {
         let mut running_total = 0.0;
 
         for weighted in self.items.iter() {
-            running_total += weighted.weight / self.total_weight;
+            running_total += weighted.1 / self.total_weight;
             if val < running_total {
-                return &weighted.item;
+                return &weighted.0;
             }
         }
 
@@ -141,18 +137,18 @@ impl<T> WeightedList<T> {
         let mut running_total = 0.0;
 
         for weighted in self.items.iter_mut() {
-            running_total += weighted.weight / self.total_weight;
+            running_total += weighted.1 / self.total_weight;
             if val < running_total {
                 return (
-                    &weighted.item,
+                    &weighted.0,
                     Box::new(|new_weight| {
                         assert!(
                             new_weight >= 0.0,
                             "Item weight must be greater than or equal to zero, given: {new_weight}"
                         );
 
-                        self.total_weight = (self.total_weight - weighted.weight) + new_weight;
-                        weighted.weight = new_weight;
+                        self.total_weight = (self.total_weight - weighted.1) + new_weight;
+                        weighted.1 = new_weight;
                     }),
                 );
             }
@@ -197,37 +193,25 @@ impl<T> RemoveRandom for &mut WeightedList<T> {
             0 => None,
             1 => {
                 let item = self.items.swap_remove(0);
-                self.total_weight -= item.weight;
-                Some(item.into())
+                self.total_weight -= item.1;
+                Some(item)
             }
             _ => {
                 let val: f64 = rng.gen();
                 let mut running_total = 0.0;
 
                 for (i, item) in self.items.iter_mut().enumerate() {
-                    running_total += item.weight / self.total_weight;
+                    running_total += item.1 / self.total_weight;
                     if val < running_total {
                         let item = self.items.swap_remove(i);
-                        self.total_weight -= item.weight;
-                        return Some(item.into());
+                        self.total_weight -= item.1;
+                        return Some(item);
                     }
                 }
 
                 panic!("Reached end without finding a match!");
             }
         }
-    }
-}
-
-#[derive(Clone)]
-struct WeightedItem<T> {
-    item: T,
-    weight: f64,
-}
-
-impl<T> From<ItemAndWeight<T>> for WeightedItem<T> {
-    fn from((item, weight): ItemAndWeight<T>) -> Self {
-        Self { item, weight }
     }
 }
 
