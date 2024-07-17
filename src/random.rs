@@ -108,7 +108,7 @@ impl<T> WeightedList<T> {
             .find(|(_, weighted)| &weighted.0 == item)?;
         let item = self.items.swap_remove(item_index);
         self.total_weight -= item.1;
-        Some(item.into())
+        Some(item)
     }
 
     fn with_capacity(capacity: usize) -> Self {
