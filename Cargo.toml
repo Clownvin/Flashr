@@ -12,7 +12,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.5.9", features = ["derive"] }
 crossterm = "0.27.0"
-hashbrown = "0.14.5"
+hashbrown = { version = "0.14.5", features = ["serde"]}
 rand = "0.8.5"
 ratatui = "0.27.0"
 serde = { "version" = "1.0.204", "features" = ["std", "derive"] }
