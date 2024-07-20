@@ -1,5 +1,6 @@
 #![feature(iter_intersperse)]
 use clap::Parser;
+use stats::{Stats, StatsError};
 use std::{fmt::Display, ops::Deref, str::FromStr};
 
 use deck::{load_decks, Card, Deck, DeckError};
@@ -11,13 +12,15 @@ pub mod deck;
 mod event;
 mod modes;
 mod random;
+mod stats;
 mod terminal;
 
 pub fn run() -> Result<ModeResult, FlashrError> {
     let cli = cli::FlashrCli::parse();
     let decks = load_decks(cli.paths)?;
+    let stats = Stats::load_from_user_home()?;
     let term = TerminalWrapper::new().map_err(UiError::IoError)?;
-    let args = ModeArguments::new(&decks, cli.problem_count, cli.faces);
+    let args = ModeArguments::new(&decks, stats, cli.problem_count, cli.faces);
     args.validate()?;
 
     match cli.mode {
@@ -28,7 +31,8 @@ pub fn run() -> Result<ModeResult, FlashrError> {
 
 type Faces = Option<Vec<String>>;
 type ProblemCount = Option<usize>;
-type ModeResult = (usize, usize);
+type CorrectIncorrect = (usize, usize);
+type ModeResult = (CorrectIncorrect, Stats);
 type FaceAndCard<'a> = (String, &'a Card);
 
 #[derive(Clone, Debug)]
@@ -66,10 +70,11 @@ struct ModeArguments<'a> {
     problem_count: ProblemCount,
     faces: Faces,
     deck_cards: Vec<(&'a Deck, &'a Card)>,
+    stats: Stats,
 }
 
 impl<'a> ModeArguments<'a> {
-    fn new(decks: &'a [Deck], problem_count: ProblemCount, faces: Faces) -> Self {
+    fn new(decks: &'a [Deck], stats: Stats, problem_count: ProblemCount, faces: Faces) -> Self {
         let mut deck_cards = Vec::with_capacity(decks.iter().fold(0, |total, deck| {
             total + (deck.cards.len() * deck.faces.len())
         }));
@@ -106,6 +111,7 @@ impl<'a> ModeArguments<'a> {
             problem_count,
             faces,
             deck_cards,
+            stats,
         }
     }
 
@@ -150,6 +156,7 @@ pub enum FlashrError {
     Ui(UiError),
     DeckMismatch(String),
     Arg(ArgError),
+    Stats(StatsError),
 }
 
 impl Display for FlashrError {
@@ -160,6 +167,7 @@ impl Display for FlashrError {
             Self::Deck(err) => f.write_fmt(format_args!("Deck: {err}")),
             Self::Ui(err) => f.write_fmt(format_args!("Ui: {err}")),
             Self::Arg(err) => f.write_fmt(format_args!("Arg: {err}")),
+            Self::Stats(err) => f.write_fmt(format_args!("Stats: {err}")),
         }
     }
 }
@@ -179,6 +187,12 @@ impl From<UiError> for FlashrError {
 impl From<ArgError> for FlashrError {
     fn from(err: ArgError) -> Self {
         Self::Arg(err)
+    }
+}
+
+impl From<StatsError> for FlashrError {
+    fn from(err: StatsError) -> Self {
+        Self::Stats(err)
     }
 }
 

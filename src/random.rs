@@ -70,95 +70,149 @@ impl<T> GetRandom for [T] {
     }
 }
 
-type ItemAndWeight<T> = (T, f64);
+pub type ItemAndWeight<T> = (T, f64);
 
 #[derive(Clone)]
-struct WeightedList<T> {
+pub struct WeightedList<T> {
     items: Vec<ItemAndWeight<T>>,
     total_weight: f64,
 }
 
+///WeightedList which can only be accessed randomly.
+///Interally the list is sorted by weight so that
+///the number of average iterations during a search in minimized.
 impl<T> WeightedList<T> {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             items: Vec::default(),
             total_weight: 0.0,
         }
     }
 
-    fn add(&mut self, item: impl Into<ItemAndWeight<T>>) {
+    pub fn add(&mut self, item: impl Into<ItemAndWeight<T>>) {
         let item = item.into();
         let weight = item.1;
         assert!(
             weight >= 0.0,
             "item weight must be greater than or equal to zero, given: {weight}"
         );
-        self.total_weight += weight;
-        self.items.push(item);
-    }
 
-    fn _remove(&mut self, item: &T) -> Option<ItemAndWeight<T>>
-    where
-        T: PartialEq,
-    {
-        let (item_index, _) = self
+        //TODO: Could optimize this into binary search, but f64 not Ord
+        if let Some((index, _)) = self
             .items
             .iter()
             .enumerate()
-            .find(|(_, weighted)| &weighted.0 == item)?;
-        let item = self.items.swap_remove(item_index);
-        self.total_weight -= item.1;
-        Some(item)
+            .find(|(_, item)| item.1 < weight)
+        {
+            self.items.insert(index, item);
+        } else {
+            self.items.push(item);
+        }
+
+        self.total_weight += weight;
     }
 
-    fn with_capacity(capacity: usize) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
             items: Vec::with_capacity(capacity),
             total_weight: 0.0,
         }
     }
 
-    fn _get(&self, rng: &mut ThreadRng) -> &T {
-        let val: f64 = rng.gen();
-        let mut running_total = 0.0;
+    pub fn get(&self, rng: &mut ThreadRng) -> Option<(&T, usize)> {
+        match self.len() {
+            0 => None,
+            1 => self.items.first().map(|(val, _)| (val, 0)),
+            _ => {
+                let needle = rng.gen_range(0.0..self.total_weight);
+                let mut running_total = 0.0;
 
-        for weighted in self.items.iter() {
-            running_total += weighted.1 / self.total_weight;
-            if val < running_total {
-                return &weighted.0;
+                for (i, (item, weight)) in self.items.iter().enumerate() {
+                    running_total += weight;
+                    if needle < running_total {
+                        return Some((item, i));
+                    }
+                }
+
+                panic!("Reached end without finding match");
             }
         }
-
-        panic!("Reached end without finding a match!");
     }
 
-    fn _get_mut<'a>(&'a mut self, rng: &mut ThreadRng) -> (&T, Box<dyn FnOnce(f64) + 'a>) {
-        let val: f64 = rng.gen();
-        let mut running_total = 0.0;
+    pub fn take_non_repeating<'a>(
+        &'a self,
+        count: usize,
+        rng: &'a mut ThreadRng,
+    ) -> Option<Vec<(&T, usize)>>
+    where
+        T: PartialEq,
+    {
+        if self.total_weight == 0.0 {
+            None
+        } else {
+            Some(self.iter(rng).take(count).collect())
+        }
+    }
 
-        for weighted in self.items.iter_mut() {
-            running_total += weighted.1 / self.total_weight;
-            if val < running_total {
-                return (
-                    &weighted.0,
-                    Box::new(|new_weight| {
-                        assert!(
-                            new_weight >= 0.0,
-                            "Item weight must be greater than or equal to zero, given: {new_weight}"
-                        );
+    pub fn remove(&mut self, rng: &mut ThreadRng) -> Option<T> {
+        match self.len() {
+            0 => None,
+            1 => {
+                let (item, _) = self.items.swap_remove(0);
+                self.total_weight = 0.0;
+                Some(item)
+            }
+            _ => {
+                let val = rng.gen_range(0.0..self.total_weight);
+                let mut running_total = 0.0;
 
-                        self.total_weight = (self.total_weight - weighted.1) + new_weight;
-                        weighted.1 = new_weight;
-                    }),
-                );
+                for (i, (_, weight)) in self.items.iter_mut().enumerate() {
+                    running_total += *weight;
+                    if val < running_total {
+                        let (item, weight) = self.items.swap_remove(i);
+                        self.total_weight -= weight;
+                        return Some(item);
+                    }
+                }
+
+                panic!("Reached end without finding match");
             }
         }
+    }
 
-        panic!("Reached end without finding a match!");
+    pub fn change_weight(&mut self, mut index: usize, weight: f64) {
+        assert!(
+            weight >= 0.0,
+            "item weight must be greater than or equal to zero, given: {weight}"
+        );
+
+        let item = &mut self.items[index];
+        let old_weight = item.1;
+        self.total_weight = (self.total_weight - old_weight) + weight;
+        item.1 = weight;
+
+        if old_weight < weight {
+            //Bubble up
+            while index > 0 && self.items[index - 1].1 < weight {
+                self.items.swap(index, index - 1);
+                index -= 1;
+            }
+        } else {
+            //Bubble down
+            let max = self.len() - 1;
+            while index < max && self.items[index + 1].1 > weight {
+                self.items.swap(index, index + 1);
+                index += 1;
+            }
+        }
     }
 
     fn len(&self) -> usize {
         self.items.len()
+    }
+
+    pub fn iter<'a>(&'a self, rng: &'a mut ThreadRng) -> WeightedListIterator<'a, T> {
+        WeightedListIterator::new(self, rng)
     }
 }
 
@@ -185,31 +239,72 @@ impl<T> FromIterator<ItemAndWeight<T>> for WeightedList<T> {
     }
 }
 
-impl<T> RemoveRandom for &mut WeightedList<T> {
-    type Item = ItemAndWeight<T>;
+impl<T> RemoveRandom for WeightedList<T> {
+    type Item = T;
 
     fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item> {
-        match self.len() {
+        self.remove(rng)
+    }
+}
+
+pub struct WeightedListIterator<'a, T> {
+    list: &'a WeightedList<T>,
+    seen: Vec<usize>,
+    remaining_weight: f64,
+    rng: &'a mut ThreadRng,
+}
+
+impl<'a, T> WeightedListIterator<'a, T> {
+    fn new(list: &'a WeightedList<T>, rng: &'a mut ThreadRng) -> Self {
+        Self {
+            list,
+            seen: Vec::with_capacity(list.len()),
+            remaining_weight: list.total_weight,
+            rng,
+        }
+    }
+}
+
+impl<'a, T> Iterator for WeightedListIterator<'a, T>
+where
+    T: PartialEq,
+{
+    type Item = (&'a T, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.list.len() - self.seen.len() {
             0 => None,
             1 => {
-                let item = self.items.swap_remove(0);
-                self.total_weight -= item.1;
-                Some(item)
+                let (item, i) = self
+                    .list
+                    .items
+                    .iter()
+                    .enumerate()
+                    .find(|(i, _)| !self.seen.contains(i))
+                    .map(|(i, (ref item, _))| (item, i))
+                    .unwrap();
+
+                self.seen.push(i);
+                Some((item, i))
             }
             _ => {
-                let val: f64 = rng.gen();
+                let needle = self.rng.gen_range(0.0..self.remaining_weight);
                 let mut running_total = 0.0;
 
-                for (i, item) in self.items.iter_mut().enumerate() {
-                    running_total += item.1 / self.total_weight;
-                    if val < running_total {
-                        let item = self.items.swap_remove(i);
-                        self.total_weight -= item.1;
-                        return Some(item);
+                for (i, (item, weight)) in self.list.items.iter().enumerate() {
+                    if self.seen.iter().any(|index| *index == i) {
+                        continue;
+                    }
+
+                    running_total += weight;
+                    if needle < running_total {
+                        self.remaining_weight -= weight;
+                        self.seen.push(i);
+                        return Some((item, i));
                     }
                 }
 
-                panic!("Reached end without finding a match!");
+                panic!("Reached end without finding match");
             }
         }
     }
@@ -303,13 +398,12 @@ mod tests {
         let rng = &mut rand::thread_rng();
 
         let mut list = WeightedList::default();
-        assert!(list.into_iter_shuffled(rng).next().is_none());
+        assert!(list.clone().into_iter_shuffled(rng).next().is_none());
 
         list.add((1, 1.0));
         for _ in 0..10 {
-            let mut list = list.clone();
-            let mut iter = list.into_iter_shuffled(rng);
-            assert!(matches!(iter.next(), Some((1, 1.0))));
+            let mut iter = list.iter(rng);
+            assert!(matches!(iter.next(), Some((&1, 0))));
             assert!(iter.next().is_none());
         }
 
@@ -317,10 +411,9 @@ mod tests {
         let mut seen = (0, 0);
         const TOTAL: usize = 1000;
         for _ in 0..TOTAL {
-            list.clone()
-                .into_iter_shuffled(rng)
+            list.iter(rng)
                 .enumerate()
-                .for_each(|(i, (v, _))| if v == 1 { seen.0 += i } else { seen.1 += i })
+                .for_each(|(i, (v, _))| if *v == 1 { seen.0 += i } else { seen.1 += i })
         }
 
         let (min, max) = seen.min_max();
@@ -336,10 +429,9 @@ mod tests {
         list.add((3, 3.0));
         let mut seen = (0, 0);
         for _ in 0..TOTAL {
-            list.clone()
-                .into_iter_shuffled(rng)
+            list.iter(rng)
                 .enumerate()
-                .for_each(|(i, (v, _))| if v == 3 { seen.0 += i } else { seen.1 += i })
+                .for_each(|(i, (v, _))| if *v == 3 { seen.0 += i } else { seen.1 += i })
         }
 
         let (min, _) = seen.min_max();

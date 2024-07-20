@@ -47,6 +47,12 @@ impl Debug for Deck {
     }
 }
 
+impl PartialEq for Deck {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
 impl Deref for Deck {
     type Target = Vec<Card>;
 
@@ -90,20 +96,22 @@ impl Deref for Card {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 pub struct CardId(String);
+
+impl CardId {
+    pub fn get(deck: &Deck, card: &Card) -> Self {
+        let deck = &deck.name;
+        let card = card.front_string();
+        Self(format!("{deck}:{card}"))
+    }
+}
 
 impl Deref for CardId {
     type Target = String;
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl From<Card> for CardId {
-    fn from(card: Card) -> Self {
-        Self(card.front_string())
     }
 }
 
