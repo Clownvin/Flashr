@@ -10,7 +10,7 @@ use ratatui::{
 use crate::{
     deck::{Card, CardId, Deck},
     event::{clear_and_match_event, UserInput},
-    random::{GetRandom, IntoIterShuffled, RemoveRandom, WeightedList},
+    random::{GetRandom, IntoIterShuffled, WeightedList},
     stats::Stats,
     terminal::TerminalWrapper,
     CorrectIncorrect, FaceAndCard, FlashrError, ModeArguments, ModeResult, OptionTuple,
@@ -24,20 +24,32 @@ pub fn match_faces(
     args: ModeArguments,
 ) -> Result<ModeResult, FlashrError> {
     let term = &mut term;
-    let mut stats = args.stats;
     let rng = &mut rand::thread_rng();
-    let problems = MatchProblemIterator::new(args.deck_cards, &mut stats, args.faces, rng);
+    let mut stats = args.stats;
+    let mut problems = MatchProblemIterator::new(args.deck_cards, &mut stats, args.faces, rng);
 
     let mut total_correct = 0;
 
     if let Some(count) = args.problem_count {
-        for problem in problems.take(count) {
-            let result = show_match_problem(term, &problem?, (total_correct, count))?;
+        for _ in 0..count {
+            let problem = problems.next().unwrap()?;
+            let result = show_match_problem(term, &problem, (total_correct, count))?;
 
             match result {
-                ProblemResult::Correct => total_correct += 1,
+                ProblemResult::Correct => {
+                    let id = CardId::get(problem.deck, problem.question.1);
+                    let stats = stats.for_card_mut(id);
+                    stats.correct += 1;
+                    total_correct += 1;
+                    problems.change_weight(problem.question.2, stats.weight());
+                }
+                ProblemResult::Incorrect => {
+                    let id = CardId::get(problem.deck, problem.question.1);
+                    let stats = stats.for_card_mut(id);
+                    stats.incorrect += 1;
+                    problems.change_weight(problem.question.2, stats.weight());
+                }
                 ProblemResult::Quit => return Ok(((total_correct, count), stats)),
-                ProblemResult::Incorrect => {}
             }
         }
 
@@ -45,14 +57,26 @@ pub fn match_faces(
     } else {
         let mut total = 0;
 
-        for (i, problem) in problems.enumerate() {
-            let result = show_match_problem(term, &problem?, (total_correct, i))?;
+        for i in 0.. {
+            let problem = problems.next().unwrap()?;
+            let result = show_match_problem(term, &problem, (total_correct, i))?;
 
             total += 1;
             match result {
-                ProblemResult::Correct => total_correct += 1,
+                ProblemResult::Correct => {
+                    let id = CardId::get(problem.deck, problem.question.1);
+                    let stats = stats.for_card_mut(id);
+                    stats.correct += 1;
+                    total_correct += 1;
+                    problems.change_weight(problem.question.2, stats.weight());
+                }
+                ProblemResult::Incorrect => {
+                    let id = CardId::get(problem.deck, problem.question.1);
+                    let stats = stats.for_card_mut(id);
+                    stats.incorrect += 1;
+                    problems.change_weight(problem.question.2, stats.weight());
+                }
                 ProblemResult::Quit => return Ok(((total_correct, total), stats)),
-                ProblemResult::Incorrect => {}
             }
         }
 
@@ -140,11 +164,11 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
         seen_faces.push(&problem_answer);
 
         let mut answer_cards = Vec::with_capacity(ANSWERS_PER_PROBLEM);
-        answer_cards.push(((problem_answer.clone(), *card), true));
+        answer_cards.push(((problem_answer.clone(), *card, i), true));
 
         self.cards
             .iter(self.rng)
-            .filter_map(|((deck, card), i)| {
+            .filter_map(|((deck, card), card_index)| {
                 deck.faces.iter().enumerate().find_map(|(i, face)| {
                     if face != answer_face {
                         None
@@ -154,7 +178,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                                 None
                             } else {
                                 seen_faces.push(face);
-                                Some(((face.clone(), *card), false))
+                                Some(((face.clone(), *card, card_index), false))
                             }
                         })
                     }
@@ -179,10 +203,12 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
 
         Some(Ok(MatchProblem {
             deck,
-            question: (problem_question.join_random(", ", self.rng), card),
+            question: (problem_question.join_random(", ", self.rng), card, i),
             answers: answer_cards
                 .into_iter()
-                .map(|((face, card), correct)| ((face.join_random(", ", self.rng), card), correct))
+                .map(|((face, card, i), correct)| {
+                    ((face.join_random(", ", self.rng), card, i), correct)
+                })
                 .collect(),
             answer_index,
         }))
@@ -272,7 +298,7 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                     .render(question_area, buf);
 
                 self.problem.answers.iter().enumerate().for_each(
-                    |(answer_index, ((answer, _answer_card), _))| {
+                    |(answer_index, ((answer, _answer_card, _), _))| {
                         let answer_area = answer_areas[answer_index];
                         state.answer_areas[answer_index] = answer_area;
 
@@ -289,7 +315,7 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                     .render(question_area, buf);
 
                 self.problem.answers.iter().enumerate().for_each(
-                    |(answer_index, ((_, card_answer), is_correct))| {
+                    |(answer_index, ((_, card_answer, _), is_correct))| {
                         let answer_area = answer_areas[answer_index];
                         state.answer_areas[answer_index] = answer_area;
 
@@ -489,17 +515,17 @@ mod test {
                 .answers
                 .iter()
                 //Assert that each problem question is not present in the answers
-                .all(|((answer, _), _)| answer != &problem.question.0));
+                .all(|((answer, _, _), _)| answer != &problem.question.0));
             assert!(problem
                 .answers
                 .iter()
                 .enumerate()
-                .all(|(ref i, ((answer, _), _))| problem
+                .all(|(ref i, ((answer, _, _), _))| problem
                     .answers
                     .iter()
                     .enumerate()
                     .filter(|(j, _)| i != j)
-                    .all(|(_, ((other_answer, _), _))| other_answer != answer)))
+                    .all(|(_, ((other_answer, _, _), _))| other_answer != answer)))
         }
     }
 

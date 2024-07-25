@@ -101,10 +101,16 @@ impl Stats {
     }
 }
 
+impl Default for Stats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct CardStats {
-    correct: usize,
-    incorrect: usize,
+    pub correct: usize,
+    pub incorrect: usize,
 }
 
 impl CardStats {
@@ -116,7 +122,7 @@ impl CardStats {
     }
 
     pub fn weight(&self) -> f64 {
-        1.0 / (self.correct.saturating_sub(self.incorrect) + 1) as f64
+        1.0 / (self.correct + 1) as f64
     }
 }
 
