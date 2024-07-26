@@ -32,8 +32,9 @@ pub fn run() -> Result<ModeResult, FlashrError> {
 type Faces = Option<Vec<String>>;
 type ProblemCount = Option<usize>;
 type CorrectIncorrect = (usize, usize);
+type DeckCard<'a> = (&'a Deck, &'a Card);
 type ModeResult = (CorrectIncorrect, Stats);
-type FaceAndCard<'a> = (String, &'a Card, usize);
+type FaceCardIndex<'a> = (String, &'a Card, usize);
 
 #[derive(Clone, Debug)]
 enum Mode {

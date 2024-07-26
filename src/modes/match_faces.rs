@@ -8,12 +8,12 @@ use ratatui::{
 };
 
 use crate::{
-    deck::{Card, CardId, Deck},
+    deck::{CardId, Deck},
     event::{clear_and_match_event, UserInput},
     random::{GetRandom, IntoIterShuffled, WeightedList},
     stats::Stats,
     terminal::TerminalWrapper,
-    CorrectIncorrect, FaceAndCard, FlashrError, ModeArguments, ModeResult, OptionTuple,
+    CorrectIncorrect, DeckCard, FaceCardIndex, FlashrError, ModeArguments, ModeResult, OptionTuple,
     ProblemResult,
 };
 
@@ -86,27 +86,20 @@ pub fn match_faces(
 
 struct MatchProblemIterator<'a> {
     rng: &'a mut ThreadRng,
-    cards: WeightedList<(&'a Deck, &'a Card)>,
+    cards: WeightedList<DeckCard<'a>>,
     faces: Option<Vec<String>>,
 }
 
 impl<'a> MatchProblemIterator<'a> {
     fn new(
-        deck_cards: Vec<(&'a Deck, &'a Card)>,
+        deck_cards: Vec<DeckCard<'a>>,
         stats: &mut Stats,
         faces: Option<Vec<String>>,
         rng: &'a mut ThreadRng,
     ) -> Self {
         let cards = deck_cards
             .into_iter()
-            .map(|deck_card| {
-                (
-                    deck_card,
-                    stats
-                        .for_card(CardId::get(deck_card.0, deck_card.1))
-                        .weight(),
-                )
-            })
+            .map(|deck_card| (deck_card, stats.for_card(deck_card).weight()))
             .collect();
         Self { rng, cards, faces }
     }
@@ -217,8 +210,8 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
 
 struct MatchProblem<'a> {
     deck: &'a Deck,
-    question: FaceAndCard<'a>,
-    answers: Vec<(FaceAndCard<'a>, bool)>,
+    question: FaceCardIndex<'a>,
+    answers: Vec<(FaceCardIndex<'a>, bool)>,
     answer_index: usize,
 }
 

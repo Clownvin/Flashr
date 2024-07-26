@@ -9,6 +9,8 @@ use std::{
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 use serde::{de::Visitor, ser::SerializeSeq, Deserialize, Serialize};
 
+use crate::DeckCard;
+
 ///Represents a deck of flashcards. Each card must have the same number of faces as
 ///the deck's own faces array, though any number of those faces may optionally be null/None
 ///as long as at least two are non-nullish/Some. Faces may also be subdivided into subfaces
@@ -112,6 +114,12 @@ impl Deref for CardId {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<'a> From<DeckCard<'a>> for CardId {
+    fn from((deck, card): DeckCard<'a>) -> Self {
+        Self::get(deck, card)
     }
 }
 
