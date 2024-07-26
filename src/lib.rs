@@ -15,7 +15,7 @@ mod random;
 mod stats;
 mod terminal;
 
-pub fn run() -> Result<ModeResult, FlashrError> {
+pub fn run() -> Result<CorrectIncorrect, FlashrError> {
     let cli = cli::FlashrCli::parse();
     let decks = load_decks(cli.paths)?;
     let stats = Stats::load_from_user_home()?;
@@ -23,10 +23,14 @@ pub fn run() -> Result<ModeResult, FlashrError> {
     let args = ModeArguments::new(&decks, stats, cli.problem_count, cli.faces);
     args.validate()?;
 
-    match cli.mode {
+    let (correct_incorrect, stats) = match cli.mode {
         Mode::Match => match_faces(term, args),
         Mode::Type => type_faces(term, args),
-    }
+    }?;
+
+    stats.save_to_user_home()?;
+
+    Ok(correct_incorrect)
 }
 
 type Faces = Option<Vec<String>>;

@@ -3,7 +3,7 @@ use std::process::exit;
 fn main() {
     let result = flashr::run();
     match result {
-        Ok(((total_correct, total), stats)) => {
+        Ok((total_correct, total)) => {
             println!(
                 "You got {total_correct} correct out of {total} ({:.2}%)",
                 if total == 0 {
