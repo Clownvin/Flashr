@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 use crate::{
-    deck::{CardId, Deck},
+    deck::Deck,
     event::{clear_and_match_event, UserInput},
     random::{GetRandom, IntoIterShuffled, WeightedList},
     stats::Stats,
@@ -38,8 +38,7 @@ pub fn match_faces(
             if result.is_quit() {
                 return Ok(((total_correct, count), stats));
             } else {
-                let id = CardId::get(problem.deck, problem.question.1);
-                let stats = stats.for_card_mut(id);
+                let stats = stats.for_card_mut((problem.deck, problem.question.1));
 
                 if result.is_correct() {
                     stats.correct += 1;
@@ -65,8 +64,7 @@ pub fn match_faces(
             if result.is_quit() {
                 return Ok(((total_correct, total), stats));
             } else {
-                let id = CardId::get(problem.deck, problem.question.1);
-                let stats = stats.for_card_mut(id);
+                let stats = stats.for_card_mut((problem.deck, problem.question.1));
 
                 if result.is_correct() {
                     stats.correct += 1;
