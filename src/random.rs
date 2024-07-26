@@ -139,7 +139,7 @@ impl<T> WeightedList<T> {
         }
     }
 
-    pub fn take_non_repeating<'a>(
+    pub fn _take_non_repeating<'a>(
         &'a self,
         count: usize,
         rng: &'a mut ThreadRng,
@@ -292,7 +292,7 @@ where
                 let mut running_total = 0.0;
 
                 for (i, (item, weight)) in self.list.items.iter().enumerate() {
-                    if self.seen.iter().any(|index| *index == i) {
+                    if self.seen.contains(&i) {
                         continue;
                     }
 
