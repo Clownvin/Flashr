@@ -38,7 +38,7 @@ pub struct Stats {
     card_stats: HashMap<CardId, CardStats>,
 }
 
-const DEFAULT_DIRECTORY: &str = ".config/flashr/stats.json";
+const DEFAULT_HOME_STATS_PATH: &str = ".config/flashr/stats.json";
 
 impl Stats {
     pub fn new() -> Self {
@@ -67,13 +67,33 @@ impl Stats {
     }
 
     pub fn load_from_user_home() -> Result<Self, StatsError> {
-        let path = dirs::home_dir();
-        if let Some(mut path) = path {
-            path.push(DEFAULT_DIRECTORY);
-            Self::load_from_file(path)
-        } else {
-            Err(StatsError::NoHomeDirError())
+        let path = get_home_folder()?;
+        Self::load_from_file(path)
+    }
+
+    pub fn save_to_file(&self, path: impl Into<PathBuf>) -> Result<(), StatsError> {
+        let path: PathBuf = path.into();
+
+        if let Some(parent) = path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|err| StatsError::IoError(path.clone(), err))?;
+            }
         }
+
+        std::fs::write(
+            &path,
+            serde_json::to_string(&self)
+                .map_err(|err| StatsError::SerdeError(path.clone(), err))?,
+        )
+        .map_err(|err| StatsError::IoError(path.clone(), err))?;
+
+        Ok(())
+    }
+
+    pub fn save_to_user_home(&self) -> Result<(), StatsError> {
+        let path = get_home_folder()?;
+        self.save_to_file(path)
     }
 
     pub fn for_card(&mut self, id: impl Into<CardId>) -> &CardStats {
@@ -107,6 +127,16 @@ impl Default for Stats {
     }
 }
 
+fn get_home_folder() -> Result<PathBuf, StatsError> {
+    let path = dirs::home_dir();
+    if let Some(mut path) = path {
+        path.push(DEFAULT_HOME_STATS_PATH);
+        Ok(path)
+    } else {
+        Err(StatsError::NoHomeDirError())
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct CardStats {
     pub correct: usize,
@@ -129,5 +159,65 @@ impl CardStats {
 impl Default for CardStats {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::deck::{Card, Deck};
+
+    use super::Stats;
+
+    const TEST_STATS_FILE_PATH: &str = "./tests/stats.json";
+
+    #[test]
+    fn save_load_file() {
+        let _ = std::fs::remove_file(TEST_STATS_FILE_PATH);
+
+        let deck = Deck {
+            name: "test".to_owned(),
+            faces: vec![],
+            cards: vec![],
+        };
+        let card = Card::new(vec![Some("Front"), Some("Back")]);
+
+        {
+            let mut stats = Stats::default();
+            let card_stats = stats.for_card_mut((&deck, &card));
+            card_stats.correct += 1;
+            assert!(stats.save_to_file(TEST_STATS_FILE_PATH).is_ok());
+        }
+
+        {
+            let mut stats = Stats::load_from_file(TEST_STATS_FILE_PATH).unwrap();
+            assert!(stats.for_card((&deck, &card)).correct == 1);
+        }
+    }
+
+    const TEST_STATS_FOLDER: &str = "./tests/stats/";
+    const TEST_STATS_FILE_PATH_NESTED: &str = "./tests/stats/stats.json";
+
+    #[test]
+    fn save_load_file_nested() {
+        let _ = std::fs::remove_dir_all(TEST_STATS_FOLDER);
+
+        let deck = Deck {
+            name: "test".to_owned(),
+            faces: vec![],
+            cards: vec![],
+        };
+        let card = Card::new(vec![Some("Front"), Some("Back")]);
+
+        {
+            let mut stats = Stats::default();
+            let card_stats = stats.for_card_mut((&deck, &card));
+            card_stats.correct += 1;
+            assert!(stats.save_to_file(TEST_STATS_FILE_PATH_NESTED).is_ok());
+        }
+
+        {
+            let mut stats = Stats::load_from_file(TEST_STATS_FILE_PATH_NESTED).unwrap();
+            assert!(stats.for_card((&deck, &card)).correct == 1);
+        }
     }
 }
