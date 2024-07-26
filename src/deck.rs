@@ -66,7 +66,24 @@ impl Deref for Deck {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct Card(Vec<Option<Face>>);
 
+///Card within a deck must have at least two faces: a front and back
+const MIN_FACE_COUNT: usize = 2;
+
 impl Card {
+    pub fn new(faces: Vec<Option<impl Into<Face>>>) -> Self {
+        assert!(
+            faces.iter().flatten().count() >= MIN_FACE_COUNT,
+            "Cards must have at least two non-none faces"
+        );
+
+        Self(
+            faces
+                .into_iter()
+                .map(|face| face.map(|face| face.into()))
+                .collect(),
+        )
+    }
+
     pub fn join(&self, sep: &str) -> String {
         self.iter()
             .flatten()
@@ -156,6 +173,12 @@ impl Face {
             Self::Multi(vec) => func(vec),
             Self::Single(_) => false,
         }
+    }
+}
+
+impl From<&str> for Face {
+    fn from(face: &str) -> Self {
+        Self::Single(face.to_owned())
     }
 }
 
@@ -360,9 +383,6 @@ fn load_deck_from_file(path: PathBuf) -> Result<Deck, DeckError> {
 
     validate_deck(deck)
 }
-
-///Card within a deck must have at least two faces: a front and back
-const MIN_FACE_COUNT: usize = 2;
 
 fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
     let expected_face_count = deck.faces.len();
