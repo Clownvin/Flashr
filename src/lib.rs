@@ -123,10 +123,21 @@ impl<'a> ModeArguments<'a> {
     }
 }
 
+#[derive(PartialEq, Eq)]
 enum ProblemResult {
     Correct,
     Incorrect,
     Quit,
+}
+
+impl ProblemResult {
+    fn is_correct(&self) -> bool {
+        *self == ProblemResult::Correct
+    }
+
+    fn is_quit(&self) -> bool {
+        *self == ProblemResult::Quit
+    }
 }
 
 struct OptionTuple<T>(Option<(T, T)>);

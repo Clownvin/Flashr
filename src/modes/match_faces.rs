@@ -35,21 +35,20 @@ pub fn match_faces(
             let problem = problems.next().unwrap()?;
             let result = show_match_problem(term, &problem, (total_correct, count))?;
 
-            match result {
-                ProblemResult::Correct => {
-                    let id = CardId::get(problem.deck, problem.question.1);
-                    let stats = stats.for_card_mut(id);
+            if result.is_quit() {
+                return Ok(((total_correct, count), stats));
+            } else {
+                let id = CardId::get(problem.deck, problem.question.1);
+                let stats = stats.for_card_mut(id);
+
+                if result.is_correct() {
                     stats.correct += 1;
                     total_correct += 1;
-                    problems.change_weight(problem.question.2, stats.weight());
-                }
-                ProblemResult::Incorrect => {
-                    let id = CardId::get(problem.deck, problem.question.1);
-                    let stats = stats.for_card_mut(id);
+                } else {
                     stats.incorrect += 1;
-                    problems.change_weight(problem.question.2, stats.weight());
                 }
-                ProblemResult::Quit => return Ok(((total_correct, count), stats)),
+
+                problems.change_weight(problem.question.2, stats.weight());
             }
         }
 
@@ -62,21 +61,21 @@ pub fn match_faces(
             let result = show_match_problem(term, &problem, (total_correct, i))?;
 
             total += 1;
-            match result {
-                ProblemResult::Correct => {
-                    let id = CardId::get(problem.deck, problem.question.1);
-                    let stats = stats.for_card_mut(id);
+
+            if result.is_quit() {
+                return Ok(((total_correct, total), stats));
+            } else {
+                let id = CardId::get(problem.deck, problem.question.1);
+                let stats = stats.for_card_mut(id);
+
+                if result.is_correct() {
                     stats.correct += 1;
                     total_correct += 1;
-                    problems.change_weight(problem.question.2, stats.weight());
-                }
-                ProblemResult::Incorrect => {
-                    let id = CardId::get(problem.deck, problem.question.1);
-                    let stats = stats.for_card_mut(id);
+                } else {
                     stats.incorrect += 1;
-                    problems.change_weight(problem.question.2, stats.weight());
                 }
-                ProblemResult::Quit => return Ok(((total_correct, total), stats)),
+
+                problems.change_weight(problem.question.2, stats.weight());
             }
         }
 
