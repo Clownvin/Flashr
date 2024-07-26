@@ -4,7 +4,7 @@ use stats::{Stats, StatsError};
 use std::{fmt::Display, ops::Deref, str::FromStr};
 
 use deck::{load_decks, Card, Deck, DeckError};
-use modes::{match_faces::match_faces, type_faces::type_faces};
+use modes::match_faces::match_faces;
 use terminal::TerminalWrapper;
 
 mod cli;
@@ -25,7 +25,7 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
 
     let (correct_incorrect, stats) = match cli.mode {
         Mode::Match => match_faces(term, args),
-        Mode::Type => type_faces(term, args),
+        Mode::Type => todo!("Type mode not yet implemented"),
     }?;
 
     stats.save_to_user_home()?;
