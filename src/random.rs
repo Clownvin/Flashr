@@ -158,7 +158,7 @@ impl<T> WeightedList<T> {
         match self.len() {
             0 => None,
             1 => {
-                let (item, _) = self.items.swap_remove(0);
+                let (item, _) = self.items.remove(0);
                 self.total_weight = 0.0;
                 Some(item)
             }
@@ -169,7 +169,7 @@ impl<T> WeightedList<T> {
                 for (i, (_, weight)) in self.items.iter_mut().enumerate() {
                     running_total += *weight;
                     if val < running_total {
-                        let (item, weight) = self.items.swap_remove(i);
+                        let (item, weight) = self.items.remove(i);
                         self.total_weight -= weight;
                         return Some(item);
                     }
