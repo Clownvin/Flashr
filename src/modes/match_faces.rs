@@ -130,24 +130,19 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
         let ((question_index, question_face), (answer_index, answer_face)) =
             match self.faces.as_ref() {
                 Some(faces) => {
-                    let mut buffer = Vec::with_capacity(possible_faces.len());
-                    possible_faces
-                        .iter()
-                        .filter(|(_, face)| faces.iter().any(|specified| face == &specified))
-                        .for_each(|face| buffer.push(face));
-
-                    let question = buffer.get_random(self.rng).unwrap();
+                    let question = possible_faces
+                        .clone()
+                        .into_iter_shuffled(self.rng)
+                        .find(|(_, face)| faces.iter().any(|specified| face == &specified))
+                        .unwrap();
                     let (question_index, _) = question;
 
-                    let mut buffer = Vec::with_capacity(possible_faces.len() - 1);
-                    possible_faces
-                        .iter()
-                        .filter(|(i, _)| i != question_index)
-                        .for_each(|face| buffer.push(face));
+                    let answer = possible_faces
+                        .into_iter_shuffled(self.rng)
+                        .find(|(i, _)| *i != question_index)
+                        .unwrap();
 
-                    let answer = buffer.get_random(self.rng).unwrap();
-
-                    (**question, **answer)
+                    (question, answer)
                 }
                 None => possible_faces
                     .into_iter_shuffled(self.rng)
@@ -155,14 +150,15 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                     .unwrap(),
             };
 
-        let problem_question = card[question_index].clone().unwrap();
-        let problem_answer = card[answer_index].clone().unwrap();
+        let face_question = card[question_index].clone().unwrap();
+        let face_answer = card[answer_index].clone().unwrap();
 
         let mut seen_faces = Vec::with_capacity(ANSWERS_PER_PROBLEM);
-        seen_faces.push(&problem_answer);
+        seen_faces.push(&face_answer);
 
         let mut answer_cards = Vec::with_capacity(ANSWERS_PER_PROBLEM);
-        answer_cards.push(((problem_answer.clone(), *card, i), true));
+
+        answer_cards.push(((&face_answer, *card, i), true));
 
         self.cards
             .clone()
@@ -177,7 +173,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                                 None
                             } else {
                                 seen_faces.push(face);
-                                Some(((face.clone(), card, card_index), false))
+                                Some(((face, card, card_index), false))
                             }
                         })
                     }
@@ -188,7 +184,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
 
         if answer_cards.len() < ANSWERS_PER_PROBLEM {
             let deck = &deck.name;
-            return Some(Err(FlashrError::DeckMismatch(format!("Cannot find enough answers for question {problem_question}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
+            return Some(Err(FlashrError::DeckMismatch(format!("Cannot find enough answers for question {face_question}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
         }
 
         answer_cards.shuffle(self.rng);
@@ -202,11 +198,18 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
 
         Some(Ok(MatchProblem {
             deck,
-            question: (problem_question.join_random(", ", self.rng), card, i),
+            question: (
+                face_question.join_random(face_question.infer_separator(), self.rng),
+                card,
+                i,
+            ),
             answers: answer_cards
                 .into_iter()
                 .map(|((face, card, i), correct)| {
-                    ((face.join_random(", ", self.rng), card, i), correct)
+                    (
+                        (face.join_random(face.infer_separator(), self.rng), card, i),
+                        correct,
+                    )
                 })
                 .collect(),
             answer_index,
