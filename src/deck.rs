@@ -137,8 +137,8 @@ impl Deref for CardId {
 }
 
 impl<'a> From<&DeckCard<'a>> for CardId {
-    fn from((deck, card): &DeckCard<'a>) -> Self {
-        Self::get(deck, card)
+    fn from(dc: &DeckCard<'a>) -> Self {
+        Self::get(dc.deck, dc.card)
     }
 }
 

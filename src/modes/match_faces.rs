@@ -1,5 +1,5 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
-use rand::{rngs::ThreadRng, seq::SliceRandom};
+use rand::prelude::{SliceRandom, ThreadRng};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Stylize},
@@ -101,7 +101,10 @@ impl<'a> MatchProblemIterator<'a> {
     ) -> Self {
         let cards = deck_cards
             .into_iter()
-            .map(|deck_card| (deck_card, stats.for_card(&deck_card).weight()))
+            .map(|deck_card| {
+                let weight = stats.for_card(&deck_card).weight();
+                (deck_card, weight)
+            })
             .collect();
         Self {
             rng,
@@ -119,16 +122,9 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
     type Item = Result<MatchProblem<'a>, FlashrError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let ((problem_deck, problem_card), problem_index) =
-            self.weighted_deck_cards.get_random(self.rng)?;
+        let (problem_deck_card, problem_index) = self.weighted_deck_cards.get_random(self.rng)?;
 
-        let mut possible_faces = Vec::with_capacity(problem_deck.faces.len());
-        problem_deck
-            .faces
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| problem_card[*i].is_some())
-            .for_each(|face| possible_faces.push(face));
+        let possible_faces = problem_deck_card.possible_faces();
 
         let ((question_index, question_face), (answer_index, answer_face)) =
             match self.faces.as_ref() {
@@ -153,10 +149,10 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                     .expect("Unable to find valid question and answer faces"),
             };
 
-        let problem_question_face = problem_card[question_index]
+        let problem_question_face = problem_deck_card[question_index]
             .as_ref()
             .expect("Unable to find question face on card");
-        let problem_answer_face = problem_card[answer_index]
+        let problem_answer_face = problem_deck_card[answer_index]
             .as_ref()
             .expect("Unable to find answer face on card");
 
@@ -164,33 +160,30 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
         seen_faces.push(problem_answer_face);
 
         let mut answer_cards = Vec::with_capacity(ANSWERS_PER_PROBLEM);
-
         answer_cards.push((
-            (
-                problem_answer_face,
-                (*problem_deck, *problem_card),
-                problem_index,
-            ),
+            (problem_answer_face, *problem_deck_card, problem_index),
             true,
         ));
 
         self.weighted_deck_cards
             .clone()
             .into_iter_shuffled(self.rng)
-            .filter_map(|(((deck, card), _), card_index)| {
-                deck.faces
+            .filter_map(|((deck_card, _), card_index)| {
+                deck_card
+                    .deck
+                    .faces
                     .iter()
                     .enumerate()
                     .find_map(|(face_index, face)| {
                         if face != answer_face {
                             None
                         } else {
-                            card[face_index].as_ref().and_then(|face| {
+                            deck_card.card[face_index].as_ref().and_then(|face| {
                                 if seen_faces.contains(&face) {
                                     None
                                 } else {
                                     seen_faces.push(face);
-                                    Some(((face, (deck, card), card_index), false))
+                                    Some(((face, deck_card, card_index), false))
                                 }
                             })
                         }
@@ -200,7 +193,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
             .for_each(|answer_card| answer_cards.push(answer_card));
 
         if answer_cards.len() < ANSWERS_PER_PROBLEM {
-            let deck = &problem_deck.name;
+            let deck = &problem_deck_card.deck.name;
             return Some(Err(FlashrError::DeckMismatch(format!("Cannot find enough answers for question {problem_question_face}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
         }
 
@@ -217,7 +210,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
             question: PromptCard {
                 prompt: problem_question_face
                     .join_random(problem_question_face.infer_separator(), self.rng),
-                deck_card: (problem_deck, problem_card),
+                deck_card: *problem_deck_card,
                 index: problem_index,
             },
             answers: answer_cards
@@ -344,7 +337,7 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                         state.answer_areas[answer_index] = answer_area;
 
                         let is_answered = answer_index == answered_index;
-                        MatchAnswerWidget::new(answer.deck_card.1.join("\n"), answer_index)
+                        MatchAnswerWidget::new(answer.deck_card.join("\n"), answer_index)
                             .answered((*is_correct, is_answered))
                             .render(answer_area, buf)
                     },

@@ -36,8 +36,38 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
 type Faces = Option<Vec<String>>;
 type ProblemCount = Option<usize>;
 type CorrectIncorrect = (usize, usize);
-type DeckCard<'a> = (&'a Deck, &'a Card);
 type ModeResult = (CorrectIncorrect, Stats);
+
+#[derive(Clone, Copy)]
+struct DeckCard<'a> {
+    deck: &'a Deck,
+    card: &'a Card,
+}
+
+impl<'a> DeckCard<'a> {
+    fn new(deck: &'a Deck, card: &'a Card) -> Self {
+        Self { deck, card }
+    }
+
+    fn possible_faces(&self) -> Vec<(usize, &String)> {
+        let mut possible_faces = Vec::with_capacity(self.deck.faces.len());
+        self.deck
+            .faces
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| self.card[*i].is_some())
+            .for_each(|face| possible_faces.push(face));
+        possible_faces
+    }
+}
+
+impl<'a> Deref for DeckCard<'a> {
+    type Target = Card;
+
+    fn deref(&self) -> &'a Self::Target {
+        self.card
+    }
+}
 
 struct PromptCard<'a> {
     prompt: String,
@@ -85,7 +115,7 @@ impl Display for Mode {
 struct ModeArguments<'a> {
     problem_count: ProblemCount,
     faces: Faces,
-    deck_cards: Vec<(&'a Deck, &'a Card)>,
+    deck_cards: Vec<DeckCard<'a>>,
     stats: Stats,
 }
 
@@ -109,7 +139,7 @@ impl<'a> ModeArguments<'a> {
                 } else {
                     for card in deck.cards.iter() {
                         if deck_faces.iter().any(|i| card[*i].is_some()) {
-                            deck_cards.push((deck, card));
+                            deck_cards.push(DeckCard::new(deck, card));
                         } else {
                             // Don't push, no matching faces
                         }
@@ -119,7 +149,7 @@ impl<'a> ModeArguments<'a> {
         } else {
             for deck in decks.iter() {
                 for card in deck.cards.iter() {
-                    deck_cards.push((deck, card));
+                    deck_cards.push(DeckCard::new(deck, card));
                 }
             }
         }

@@ -164,7 +164,10 @@ impl Default for CardStats {
 
 #[cfg(test)]
 mod tests {
-    use crate::deck::{Card, Deck};
+    use crate::{
+        deck::{Card, Deck},
+        DeckCard,
+    };
 
     use super::Stats;
 
@@ -180,7 +183,7 @@ mod tests {
             cards: vec![],
         };
         let card = Card::new(vec![Some("Front"), Some("Back")]);
-        let deck_card = (&deck, &card);
+        let deck_card = DeckCard::new(&deck, &card);
 
         {
             let mut stats = Stats::default();
@@ -209,7 +212,7 @@ mod tests {
             cards: vec![],
         };
         let card = Card::new(vec![Some("Front"), Some("Back")]);
-        let deck_card = (&deck, &card);
+        let deck_card = DeckCard::new(&deck, &card);
 
         {
             let mut stats = Stats::default();
