@@ -165,6 +165,21 @@ impl Face {
         }
     }
 
+    pub fn infer_separator(&self) -> &str {
+        if self.contains(",") {
+            "; "
+        } else {
+            ", "
+        }
+    }
+
+    pub fn contains(&self, pat: &str) -> bool {
+        match self {
+            Self::Single(face) => face.contains(pat),
+            Self::Multi(faces) => faces.iter().any(|face| face.contains(pat)),
+        }
+    }
+
     pub fn is_multi_and<F>(&self, func: F) -> bool
     where
         F: FnOnce(&[String]) -> bool,
@@ -184,7 +199,7 @@ impl From<&str> for Face {
 
 impl Display for Face {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.join(", "))
+        f.write_str(&self.join(self.infer_separator()))
     }
 }
 
