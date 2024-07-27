@@ -62,11 +62,11 @@ pub fn match_faces(
                 let problem = &problem?;
                 let result = show_match_problem(term, problem, (total_correct, i))?;
 
-                total += 1;
-
                 if result.is_quit() {
                     break;
                 } else {
+                    total += 1;
+
                     let stats = stats.for_card_mut((problem.deck, problem.question.1));
 
                     if result.is_correct() {
