@@ -165,8 +165,9 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
         answer_cards.push(((problem_answer.clone(), *card, i), true));
 
         self.cards
-            .iter(self.rng)
-            .filter_map(|((deck, card), card_index)| {
+            .clone()
+            .into_iter_shuffled(self.rng)
+            .filter_map(|(((deck, card), _), card_index)| {
                 deck.faces.iter().enumerate().find_map(|(i, face)| {
                     if face != answer_face {
                         None
@@ -176,7 +177,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                                 None
                             } else {
                                 seen_faces.push(face);
-                                Some(((face.clone(), *card, card_index), false))
+                                Some(((face.clone(), card, card_index), false))
                             }
                         })
                     }
