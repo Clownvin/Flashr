@@ -32,22 +32,26 @@ pub fn match_faces(
 
     if let Some(count) = args.problem_count {
         for _ in 0..count {
-            let problem = problems.next().unwrap()?;
-            let result = show_match_problem(term, &problem, (total_correct, count))?;
+            if let Some(problem) = problems.next() {
+                let problem = &problem?;
+                let result = show_match_problem(term, problem, (total_correct, count))?;
 
-            if result.is_quit() {
-                return Ok(((total_correct, count), stats));
-            } else {
-                let stats = stats.for_card_mut((problem.deck, problem.question.1));
-
-                if result.is_correct() {
-                    stats.correct += 1;
-                    total_correct += 1;
+                if result.is_quit() {
+                    break;
                 } else {
-                    stats.incorrect += 1;
-                }
+                    let stats = stats.for_card_mut((problem.deck, problem.question.1));
 
-                problems.change_weight(problem.question.2, stats.weight());
+                    if result.is_correct() {
+                        stats.correct += 1;
+                        total_correct += 1;
+                    } else {
+                        stats.incorrect += 1;
+                    }
+
+                    problems.change_weight(problem.question.2, stats.weight());
+                }
+            } else {
+                break;
             }
         }
 
@@ -56,24 +60,28 @@ pub fn match_faces(
         let mut total = 0;
 
         for i in 0.. {
-            let problem = problems.next().unwrap()?;
-            let result = show_match_problem(term, &problem, (total_correct, i))?;
+            if let Some(problem) = problems.next() {
+                let problem = &problem?;
+                let result = show_match_problem(term, problem, (total_correct, i))?;
 
-            total += 1;
+                total += 1;
 
-            if result.is_quit() {
-                return Ok(((total_correct, total), stats));
-            } else {
-                let stats = stats.for_card_mut((problem.deck, problem.question.1));
-
-                if result.is_correct() {
-                    stats.correct += 1;
-                    total_correct += 1;
+                if result.is_quit() {
+                    break;
                 } else {
-                    stats.incorrect += 1;
-                }
+                    let stats = stats.for_card_mut((problem.deck, problem.question.1));
 
-                problems.change_weight(problem.question.2, stats.weight());
+                    if result.is_correct() {
+                        stats.correct += 1;
+                        total_correct += 1;
+                    } else {
+                        stats.incorrect += 1;
+                    }
+
+                    problems.change_weight(problem.question.2, stats.weight());
+                }
+            } else {
+                break;
             }
         }
 
