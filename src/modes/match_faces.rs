@@ -8,13 +8,12 @@ use ratatui::{
 };
 
 use crate::{
-    deck::Deck,
     event::{clear_and_match_event, UserInput},
     random::{GetRandom, IntoIterShuffled, WeightedList},
     stats::Stats,
     terminal::TerminalWrapper,
-    CorrectIncorrect, DeckCard, FaceCardIndex, FlashrError, ModeArguments, ModeResult, OptionTuple,
-    ProblemResult,
+    CorrectIncorrect, DeckCard, FlashrError, ModeArguments, ModeResult, OptionTuple, ProblemResult,
+    PromptCard,
 };
 
 pub fn match_faces(
@@ -37,7 +36,7 @@ pub fn match_faces(
                 if result.is_quit() {
                     break;
                 } else {
-                    let stats = stats.for_card_mut((problem.deck, problem.question.1));
+                    let stats = stats.for_card_mut(&problem.question);
 
                     if result.is_correct() {
                         stats.correct += 1;
@@ -46,7 +45,7 @@ pub fn match_faces(
                         stats.incorrect += 1;
                     }
 
-                    problems.change_weight(problem.question.2, stats.weight());
+                    problems.change_weight(problem.question.index, stats.weight());
                 }
             } else {
                 break;
@@ -67,7 +66,7 @@ pub fn match_faces(
                 } else {
                     total += 1;
 
-                    let stats = stats.for_card_mut((problem.deck, problem.question.1));
+                    let stats = stats.for_card_mut(&problem.question);
 
                     if result.is_correct() {
                         stats.correct += 1;
@@ -76,7 +75,7 @@ pub fn match_faces(
                         stats.incorrect += 1;
                     }
 
-                    problems.change_weight(problem.question.2, stats.weight());
+                    problems.change_weight(problem.question.index, stats.weight());
                 }
             } else {
                 break;
@@ -102,7 +101,7 @@ impl<'a> MatchProblemIterator<'a> {
     ) -> Self {
         let cards = deck_cards
             .into_iter()
-            .map(|deck_card| (deck_card, stats.for_card(deck_card).weight()))
+            .map(|deck_card| (deck_card, stats.for_card(&deck_card).weight()))
             .collect();
         Self {
             rng,
@@ -120,13 +119,15 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
     type Item = Result<MatchProblem<'a>, FlashrError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let ((deck, card), i) = self.weighted_deck_cards.get_random(self.rng)?;
+        let ((problem_deck, problem_card), problem_index) =
+            self.weighted_deck_cards.get_random(self.rng)?;
 
-        let mut possible_faces = Vec::with_capacity(deck.faces.len());
-        deck.faces
+        let mut possible_faces = Vec::with_capacity(problem_deck.faces.len());
+        problem_deck
+            .faces
             .iter()
             .enumerate()
-            .filter(|(i, _)| card[*i].is_some())
+            .filter(|(i, _)| problem_card[*i].is_some())
             .for_each(|face| possible_faces.push(face));
 
         let ((question_index, question_face), (answer_index, answer_face)) =
@@ -152,45 +153,55 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                     .expect("Unable to find valid question and answer faces"),
             };
 
-        let face_question = card[question_index]
+        let problem_question_face = problem_card[question_index]
             .as_ref()
             .expect("Unable to find question face on card");
-        let face_answer = card[answer_index]
+        let problem_answer_face = problem_card[answer_index]
             .as_ref()
             .expect("Unable to find answer face on card");
 
         let mut seen_faces = Vec::with_capacity(ANSWERS_PER_PROBLEM);
-        seen_faces.push(face_answer);
+        seen_faces.push(problem_answer_face);
 
         let mut answer_cards = Vec::with_capacity(ANSWERS_PER_PROBLEM);
 
-        answer_cards.push(((face_answer, *card, i), true));
+        answer_cards.push((
+            (
+                problem_answer_face,
+                (*problem_deck, *problem_card),
+                problem_index,
+            ),
+            true,
+        ));
 
         self.weighted_deck_cards
             .clone()
             .into_iter_shuffled(self.rng)
             .filter_map(|(((deck, card), _), card_index)| {
-                deck.faces.iter().enumerate().find_map(|(i, face)| {
-                    if face != answer_face {
-                        None
-                    } else {
-                        card[i].as_ref().and_then(|face| {
-                            if seen_faces.contains(&face) {
-                                None
-                            } else {
-                                seen_faces.push(face);
-                                Some(((face, card, card_index), false))
-                            }
-                        })
-                    }
-                })
+                deck.faces
+                    .iter()
+                    .enumerate()
+                    .find_map(|(face_index, face)| {
+                        if face != answer_face {
+                            None
+                        } else {
+                            card[face_index].as_ref().and_then(|face| {
+                                if seen_faces.contains(&face) {
+                                    None
+                                } else {
+                                    seen_faces.push(face);
+                                    Some(((face, (deck, card), card_index), false))
+                                }
+                            })
+                        }
+                    })
             })
             .take(ANSWERS_PER_PROBLEM - 1)
             .for_each(|answer_card| answer_cards.push(answer_card));
 
         if answer_cards.len() < ANSWERS_PER_PROBLEM {
-            let deck = &deck.name;
-            return Some(Err(FlashrError::DeckMismatch(format!("Cannot find enough answers for question {face_question}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
+            let deck = &problem_deck.name;
+            return Some(Err(FlashrError::DeckMismatch(format!("Cannot find enough answers for question {problem_question_face}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
         }
 
         answer_cards.shuffle(self.rng);
@@ -203,17 +214,22 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
             .expect("Unable to find answer index after shuffling");
 
         Some(Ok(MatchProblem {
-            deck,
-            question: (
-                face_question.join_random(face_question.infer_separator(), self.rng),
-                card,
-                i,
-            ),
+            question: PromptCard {
+                prompt: problem_question_face
+                    .join_random(problem_question_face.infer_separator(), self.rng),
+                deck_card: (problem_deck, problem_card),
+                index: problem_index,
+            },
             answers: answer_cards
                 .into_iter()
-                .map(|((face, card, i), correct)| {
+                .map(|((answer_face, answer_deck_card, answer_index), correct)| {
                     (
-                        (face.join_random(face.infer_separator(), self.rng), card, i),
+                        PromptCard {
+                            prompt: answer_face
+                                .join_random(answer_face.infer_separator(), self.rng),
+                            deck_card: answer_deck_card,
+                            index: answer_index,
+                        },
                         correct,
                     )
                 })
@@ -224,9 +240,8 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
 }
 
 struct MatchProblem<'a> {
-    deck: &'a Deck,
-    question: FaceCardIndex<'a>,
-    answers: Vec<(FaceCardIndex<'a>, bool)>,
+    question: PromptCard<'a>,
+    answers: Vec<(PromptCard<'a>, bool)>,
     answer_index: usize,
 }
 
@@ -297,39 +312,39 @@ impl StatefulWidget for MatchProblemWidget<'_> {
 
         let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
 
-        let question = &self.problem.question.0;
-
         match self.answer {
             None => {
-                Paragraph::new(question.to_owned())
+                Paragraph::new(self.problem.question.prompt.to_owned())
                     .wrap(Wrap { trim: false })
                     .centered()
                     .render(question_area, buf);
 
-                self.problem.answers.iter().enumerate().for_each(
-                    |(answer_index, ((answer, _answer_card, _), _))| {
+                self.problem
+                    .answers
+                    .iter()
+                    .enumerate()
+                    .for_each(|(answer_index, (answer, _))| {
                         let answer_area = answer_areas[answer_index];
                         state.answer_areas[answer_index] = answer_area;
 
-                        MatchAnswerWidget::new(answer.to_owned(), answer_index)
+                        MatchAnswerWidget::new(answer.prompt.to_owned(), answer_index)
                             .render(answer_area, buf)
-                    },
-                );
+                    });
             }
             Some((answered_index, correct)) => {
-                Paragraph::new(question.to_owned())
+                Paragraph::new(self.problem.question.prompt.to_owned())
                     .wrap(Wrap { trim: false })
                     .centered()
                     .fg(if correct { Color::Green } else { Color::Red })
                     .render(question_area, buf);
 
                 self.problem.answers.iter().enumerate().for_each(
-                    |(answer_index, ((_, card_answer, _), is_correct))| {
+                    |(answer_index, (answer, is_correct))| {
                         let answer_area = answer_areas[answer_index];
                         state.answer_areas[answer_index] = answer_area;
 
                         let is_answered = answer_index == answered_index;
-                        MatchAnswerWidget::new(card_answer.join("\n"), answer_index)
+                        MatchAnswerWidget::new(answer.deck_card.1.join("\n"), answer_index)
                             .answered((*is_correct, is_answered))
                             .render(answer_area, buf)
                     },
@@ -524,17 +539,17 @@ mod test {
                 .answers
                 .iter()
                 //Assert that each problem question is not present in the answers
-                .all(|((answer, _, _), _)| answer != &problem.question.0));
+                .all(|(answer, _)| answer.prompt != problem.question.prompt));
             assert!(problem
                 .answers
                 .iter()
                 .enumerate()
-                .all(|(ref i, ((answer, _, _), _))| problem
+                .all(|(ref i, (answer, _))| problem
                     .answers
                     .iter()
                     .enumerate()
                     .filter(|(j, _)| i != j)
-                    .all(|(_, ((other_answer, _, _), _))| other_answer != answer)))
+                    .all(|(_, (other_answer, _))| other_answer.prompt != answer.prompt)))
         }
     }
 

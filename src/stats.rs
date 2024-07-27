@@ -180,10 +180,11 @@ mod tests {
             cards: vec![],
         };
         let card = Card::new(vec![Some("Front"), Some("Back")]);
+        let deck_card = (&deck, &card);
 
         {
             let mut stats = Stats::default();
-            let card_stats = stats.for_card_mut((&deck, &card));
+            let card_stats = stats.for_card_mut(&deck_card);
             card_stats.correct += 1;
             assert!(stats.save_to_file(TEST_STATS_FILE_PATH).is_ok());
         }
@@ -191,7 +192,7 @@ mod tests {
         {
             let mut stats = Stats::load_from_file(TEST_STATS_FILE_PATH)
                 .expect("Unable to load from test stats file");
-            assert!(stats.for_card((&deck, &card)).correct == 1);
+            assert!(stats.for_card(&deck_card).correct == 1);
         }
     }
 
@@ -208,10 +209,11 @@ mod tests {
             cards: vec![],
         };
         let card = Card::new(vec![Some("Front"), Some("Back")]);
+        let deck_card = (&deck, &card);
 
         {
             let mut stats = Stats::default();
-            let card_stats = stats.for_card_mut((&deck, &card));
+            let card_stats = stats.for_card_mut(&deck_card);
             card_stats.correct += 1;
             assert!(stats.save_to_file(TEST_STATS_FILE_PATH_NESTED).is_ok());
         }
@@ -219,7 +221,7 @@ mod tests {
         {
             let mut stats = Stats::load_from_file(TEST_STATS_FILE_PATH_NESTED)
                 .expect("Unable to load deck from nesed test stats file");
-            assert!(stats.for_card((&deck, &card)).correct == 1);
+            assert!(stats.for_card(&deck_card).correct == 1);
         }
     }
 }

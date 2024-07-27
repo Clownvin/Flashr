@@ -3,7 +3,7 @@ use clap::Parser;
 use stats::{Stats, StatsError};
 use std::{fmt::Display, ops::Deref, str::FromStr};
 
-use deck::{load_decks, Card, Deck, DeckError};
+use deck::{load_decks, Card, CardId, Deck, DeckError};
 use modes::match_faces::match_faces;
 use terminal::TerminalWrapper;
 
@@ -38,7 +38,18 @@ type ProblemCount = Option<usize>;
 type CorrectIncorrect = (usize, usize);
 type DeckCard<'a> = (&'a Deck, &'a Card);
 type ModeResult = (CorrectIncorrect, Stats);
-type FaceCardIndex<'a> = (String, &'a Card, usize);
+
+struct PromptCard<'a> {
+    prompt: String,
+    deck_card: DeckCard<'a>,
+    index: usize,
+}
+
+impl<'a> From<&PromptCard<'a>> for CardId {
+    fn from(card: &PromptCard<'a>) -> Self {
+        (&card.deck_card).into()
+    }
+}
 
 #[derive(Clone, Debug)]
 enum Mode {
