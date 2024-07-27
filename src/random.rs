@@ -139,47 +139,6 @@ impl<T> WeightedList<T> {
         }
     }
 
-    pub fn _take_non_repeating<'a>(
-        &'a self,
-        count: usize,
-        rng: &'a mut ThreadRng,
-    ) -> Option<Vec<(&T, usize)>>
-    where
-        T: PartialEq,
-    {
-        if self.total_weight == 0.0 {
-            None
-        } else {
-            Some(self.iter(rng).take(count).collect())
-        }
-    }
-
-    pub fn remove(&mut self, rng: &mut ThreadRng) -> Option<T> {
-        match self.len() {
-            0 => None,
-            1 => {
-                let (item, _) = self.items.remove(0);
-                self.total_weight = 0.0;
-                Some(item)
-            }
-            _ => {
-                let val = rng.gen_range(0.0..self.total_weight);
-                let mut running_total = 0.0;
-
-                for (i, (_, weight)) in self.items.iter_mut().enumerate() {
-                    running_total += *weight;
-                    if val < running_total {
-                        let (item, weight) = self.items.remove(i);
-                        self.total_weight -= weight;
-                        return Some(item);
-                    }
-                }
-
-                panic!("Reached end without finding match");
-            }
-        }
-    }
-
     pub fn change_weight(&mut self, mut index: usize, weight: f64) {
         assert!(
             weight >= 0.0,
@@ -236,14 +195,6 @@ impl<T> FromIterator<ItemAndWeight<T>> for WeightedList<T> {
         }
 
         list
-    }
-}
-
-impl<T> RemoveRandom for WeightedList<T> {
-    type Item = T;
-
-    fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item> {
-        self.remove(rng)
     }
 }
 
@@ -398,7 +349,7 @@ mod tests {
         let rng = &mut rand::thread_rng();
 
         let mut list = WeightedList::default();
-        assert!(list.clone().into_iter_shuffled(rng).next().is_none());
+        assert!(list.clone().iter(rng).next().is_none());
 
         list.add((1, 1.0));
         for _ in 0..10 {
