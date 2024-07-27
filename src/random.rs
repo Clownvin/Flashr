@@ -119,7 +119,7 @@ impl<T> WeightedList<T> {
         }
     }
 
-    pub fn get(&self, rng: &mut ThreadRng) -> Option<(&T, usize)> {
+    pub fn get_random(&self, rng: &mut ThreadRng) -> Option<(&T, usize)> {
         match self.len() {
             0 => None,
             1 => self.items.first().map(|(val, _)| (val, 0)),

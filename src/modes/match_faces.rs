@@ -110,7 +110,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
     type Item = Result<MatchProblem<'a>, FlashrError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let ((deck, card), i) = self.cards.get(self.rng)?;
+        let ((deck, card), i) = self.cards.get_random(self.rng)?;
 
         let mut possible_faces = Vec::with_capacity(deck.faces.len());
         deck.faces

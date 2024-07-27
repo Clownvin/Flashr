@@ -88,7 +88,7 @@ impl<'a> Iterator for TypeProblemIterator<'a> {
     type Item = TypeProblem<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let ((deck, card), index) = self.cards.get(self.rng)?;
+        let ((deck, card), index) = self.cards.get_random(self.rng)?;
         let (question, answer) = deck
             .faces
             .iter()
