@@ -247,7 +247,7 @@ mod tests {
         let mut seen = (0, 0);
         const TOTAL: usize = 1000;
         for _ in 0..TOTAL {
-            let val = vals.get_random(rng).unwrap();
+            let val = vals.get_random(rng).expect("Unable to get random");
             if *val == 1 {
                 seen.0 += 1;
             } else {
@@ -407,7 +407,7 @@ mod tests {
             for _ in 0..1000 {
                 let mut list = list.clone();
                 for _ in 0..200 {
-                    let (item, index) = list.get_mut(rng).unwrap();
+                    let (item, index) = list.get_mut(rng).expect("Unable to get item mutably");
                     if rng.gen_range(0..100) <= 80 {
                         item.0 += 1;
                         let denom = (item.0 + 1) as f64;
@@ -425,7 +425,7 @@ mod tests {
             for _ in 0..1000 {
                 let mut list = list.clone();
                 for _ in 0..200 {
-                    let (item, index) = list.get_mut(rng).unwrap();
+                    let (item, index) = list.get_mut(rng).expect("Unable to get item mutably");
                     if rng.gen_range(0..100) <= 80 {
                         item.0 += 1;
                         let denom = (item.0 + 1) as f64;
@@ -482,7 +482,7 @@ mod tests {
                             .enumerate()
                             .find(|(i, _)| !self.seen.contains(i))
                             .map(|(i, (ref item, _))| (item, i))
-                            .unwrap();
+                            .expect("Unable to find not-yet-seen index");
 
                         self.seen.push(i);
                         Some((item, i))

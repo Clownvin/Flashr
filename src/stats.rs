@@ -105,7 +105,7 @@ impl Stats {
             self.card_stats.insert(id.clone(), stats);
             self.card_stats.get(&id)
         }
-        .unwrap()
+        .expect("Unable to find stats for card")
     }
 
     pub fn for_card_mut(&mut self, id: impl Into<CardId>) -> &mut CardStats {
@@ -117,7 +117,7 @@ impl Stats {
             self.card_stats.insert(id.clone(), stats);
             self.card_stats.get_mut(&id)
         }
-        .unwrap()
+        .expect("Unable to find stats for card")
     }
 }
 
@@ -189,7 +189,8 @@ mod tests {
         }
 
         {
-            let mut stats = Stats::load_from_file(TEST_STATS_FILE_PATH).unwrap();
+            let mut stats = Stats::load_from_file(TEST_STATS_FILE_PATH)
+                .expect("Unable to load from test stats file");
             assert!(stats.for_card((&deck, &card)).correct == 1);
         }
     }
@@ -216,7 +217,8 @@ mod tests {
         }
 
         {
-            let mut stats = Stats::load_from_file(TEST_STATS_FILE_PATH_NESTED).unwrap();
+            let mut stats = Stats::load_from_file(TEST_STATS_FILE_PATH_NESTED)
+                .expect("Unable to load deck from nesed test stats file");
             assert!(stats.for_card((&deck, &card)).correct == 1);
         }
     }

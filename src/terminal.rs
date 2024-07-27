@@ -75,7 +75,7 @@ mod raw_mode {
 
         impl Lock {
             pub fn acquire() -> Lock {
-                let mut locked = LOCKED.lock().unwrap();
+                let mut locked = LOCKED.lock().expect("Unable to acquire lock mutex");
                 assert!(!*locked);
                 *locked = true;
                 Lock(())
@@ -84,7 +84,7 @@ mod raw_mode {
 
         impl Drop for Lock {
             fn drop(&mut self) {
-                let mut locked = LOCKED.lock().unwrap();
+                let mut locked = LOCKED.lock().expect("Unable to acquire lock mutex");
                 assert!(*locked);
                 *locked = false;
             }

@@ -97,13 +97,15 @@ impl Card {
     }
 
     pub fn front_string(&self) -> String {
-        self.front().map(Face::to_string).unwrap()
+        self.front()
+            .map(Face::to_string)
+            .expect("Unable to get front_string for card, most likely due to only empty faces")
     }
 }
 
 impl Display for Card {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&serde_json::to_string(self).unwrap())
+        f.write_str(&serde_json::to_string(self).expect("Unable to format Card as JSON"))
     }
 }
 
@@ -517,13 +519,14 @@ mod tests {
                 None,
             ])],
         };
-        let file = File::create("./tests/test_serialize.json").unwrap();
+        let file = File::create("./tests/test_serialize.json")
+            .expect("Unable to create test_serialize.json");
         let writer = BufWriter::new(file);
-        serde_json::to_writer(writer, &deck).unwrap();
+        serde_json::to_writer(writer, &deck).expect("Unable to write Deck to test_serialize.json");
     }
 
     #[test]
-    fn deserialize_deck() -> serde_json::Result<()> {
+    fn deserialize_deck() {
         let deck_json = r#"
         {
             "name": "Kanji Words",
@@ -537,12 +540,12 @@ mod tests {
             ]
         }"#;
 
-        let deck: Deck = serde_json::from_str(deck_json)?;
+        let deck: Deck =
+            serde_json::from_str(deck_json).expect("Unable to parse deck from example string");
         assert_eq!(deck.len(), 1);
         assert_eq!(deck.name, "Kanji Words");
         assert_eq!(deck.faces.len(), 3);
         assert_eq!(deck[0][2], Some(Face::Single("Japan".into())));
-        Ok(())
     }
 
     #[test]
@@ -552,7 +555,7 @@ mod tests {
             "./tests/dir",
             "./tests/empty_dir",
         ])
-        .unwrap();
+        .expect("Unable to load decks from files");
         assert_eq!(decks.len(), 3);
     }
 
@@ -564,31 +567,35 @@ mod tests {
 
     #[test]
     fn load_decks_from_file() {
-        let decks = load_decks(vec!["./tests/example.json"]).unwrap();
+        let decks =
+            load_decks(vec!["./tests/example.json"]).expect("Unable to load deck from file");
         assert_eq!(decks.len(), 1);
     }
 
     #[test]
     fn load_decks_from_non_deck_file() {
-        let decks = load_decks(vec!["./tests/dir/another_random_file.txt"]).unwrap();
+        let decks = load_decks(vec!["./tests/dir/another_random_file.txt"])
+            .expect("Unable to load deck from random file");
         assert_eq!(decks.len(), 0);
     }
 
     #[test]
     fn load_decks_from_empty_folder() {
-        let decks = load_decks(vec!["./tests/empty_dir"]).unwrap();
+        let decks =
+            load_decks(vec!["./tests/empty_dir"]).expect("Unable to load decks from directory");
         assert_eq!(decks.len(), 0);
     }
 
     #[test]
     fn load_decks_from_folder() {
-        let decks = load_decks(vec!["./tests/dir"]).unwrap();
+        let decks = load_decks(vec!["./tests/dir"]).expect("Unable to load decks from directory");
         assert_eq!(decks.len(), 2);
     }
 
     #[test]
     fn load_decks_with_subfaces() {
-        let decks = load_decks(vec!["./tests/deck_subfaces.json"]).unwrap();
+        let decks = load_decks(vec!["./tests/deck_subfaces.json"])
+            .expect("Unable to load deck with subfaces from file");
         assert!(decks.iter().any(|deck| {
             deck.cards.iter().any(|card| {
                 card.iter()
@@ -600,7 +607,8 @@ mod tests {
 
     #[test]
     fn load_deck_with_no_cards() {
-        let decks = load_decks(vec!["./tests/not_enough_cards.json"]).unwrap();
+        let decks = load_decks(vec!["./tests/not_enough_cards.json"])
+            .expect("Unable to load deck with not enough cards from file");
         assert!(decks.first().is_some_and(|deck| deck.cards.is_empty()));
     }
 
