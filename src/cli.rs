@@ -3,7 +3,7 @@ use clap::Parser;
 use crate::Mode;
 
 #[derive(Parser, Debug)]
-#[command(name = "flashr")]
+#[command(name = "flashr", version = env!("CARGO_PKG_VERSION"))]
 pub struct FlashrCli {
     #[arg(short = 'c', long = "count", value_name = "PROBLEM_COUNT", help = "Number of problems to show.", long_help = COUNT_HELP)]
     pub problem_count: Option<usize>,
