@@ -55,13 +55,13 @@ where
 pub trait GetRandom {
     type Item;
 
-    fn get_random(&self, rng: &mut ThreadRng) -> Option<&'_ Self::Item>;
+    fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item>;
 }
 
-impl<T> GetRandom for [T] {
-    type Item = T;
+impl<'a, T> GetRandom for &'a Vec<T> {
+    type Item = &'a T;
 
-    fn get_random(&self, rng: &mut ThreadRng) -> Option<&'_ Self::Item> {
+    fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item> {
         match self.len() {
             0 => None,
             1 => self.first(),
@@ -116,26 +116,6 @@ impl<T> WeightedList<T> {
         Self {
             items: Vec::with_capacity(capacity),
             total_weight: 0.0,
-        }
-    }
-
-    pub fn get_random(&self, rng: &mut ThreadRng) -> Option<(&T, usize)> {
-        match self.len() {
-            0 => None,
-            1 => self.items.first().map(|(val, _)| (val, 0)),
-            _ => {
-                let needle = rng.gen_range(0.0..self.total_weight);
-                let mut running_total = 0.0;
-
-                for (i, (item, weight)) in self.items.iter().enumerate() {
-                    running_total += weight;
-                    if needle < running_total {
-                        return Some((item, i));
-                    }
-                }
-
-                panic!("Reached end without finding match");
-            }
         }
     }
 
@@ -195,6 +175,30 @@ impl<T> FromIterator<ItemAndWeight<T>> for WeightedList<T> {
         }
 
         list
+    }
+}
+
+impl<'a, T> GetRandom for &'a WeightedList<T> {
+    type Item = (&'a T, usize);
+
+    fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item> {
+        match self.len() {
+            0 => None,
+            1 => self.items.first().map(|(val, _)| (val, 0)),
+            _ => {
+                let needle = rng.gen_range(0.0..self.total_weight);
+                let mut running_total = 0.0;
+
+                for (i, (item, weight)) in self.items.iter().enumerate() {
+                    running_total += weight;
+                    if needle < running_total {
+                        return Some((item, i));
+                    }
+                }
+
+                panic!("Reached end without finding match");
+            }
+        }
     }
 }
 
