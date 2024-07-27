@@ -92,24 +92,34 @@ impl<T> WeightedList<T> {
     pub fn add(&mut self, item: impl Into<ItemAndWeight<T>>) {
         let item = item.into();
         let weight = item.1;
+
         assert!(
             weight >= 0.0,
             "item weight must be greater than or equal to zero, given: {weight}"
         );
 
-        //TODO: Could optimize this into binary search, but f64 not Ord
-        if let Some((index, _)) = self
-            .items
-            .iter()
-            .enumerate()
-            .find(|(_, item)| item.1 < weight)
-        {
-            self.items.insert(index, item);
-        } else {
-            self.items.push(item);
-        }
-
+        self.items.push(item);
         self.total_weight += weight;
+    }
+
+    pub fn get(&self, rng: &mut ThreadRng) -> Option<(&T, usize)> {
+        match self.len() {
+            0 => None,
+            1 => self.items.first().map(|(val, _)| (val, 0)),
+            _ => {
+                let needle = rng.gen_range(0.0..self.total_weight);
+                let mut running_total = 0.0;
+
+                for (i, (item, weight)) in self.items.iter().enumerate() {
+                    running_total += *weight;
+                    if needle < running_total {
+                        return Some((item, i));
+                    }
+                }
+
+                panic!("Reached end without finding match");
+            }
+        }
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
@@ -119,7 +129,7 @@ impl<T> WeightedList<T> {
         }
     }
 
-    pub fn change_weight(&mut self, mut index: usize, weight: f64) {
+    pub fn change_weight(&mut self, index: usize, weight: f64) {
         assert!(
             weight >= 0.0,
             "item weight must be greater than or equal to zero, given: {weight}"
@@ -129,21 +139,6 @@ impl<T> WeightedList<T> {
         let old_weight = item.1;
         self.total_weight = (self.total_weight - old_weight) + weight;
         item.1 = weight;
-
-        if old_weight < weight {
-            //Bubble up
-            while index > 0 && self.items[index - 1].1 < weight {
-                self.items.swap(index, index - 1);
-                index -= 1;
-            }
-        } else {
-            //Bubble down
-            let max = self.len() - 1;
-            while index < max && self.items[index + 1].1 > weight {
-                self.items.swap(index, index + 1);
-                index += 1;
-            }
-        }
     }
 
     fn len(&self) -> usize {
@@ -182,23 +177,7 @@ impl<'a, T> GetRandom for &'a WeightedList<T> {
     type Item = (&'a T, usize);
 
     fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item> {
-        match self.len() {
-            0 => None,
-            1 => self.items.first().map(|(val, _)| (val, 0)),
-            _ => {
-                let needle = rng.gen_range(0.0..self.total_weight);
-                let mut running_total = 0.0;
-
-                for (i, (item, weight)) in self.items.iter().enumerate() {
-                    running_total += weight;
-                    if needle < running_total {
-                        return Some((item, i));
-                    }
-                }
-
-                panic!("Reached end without finding match");
-            }
-        }
+        self.get(rng)
     }
 }
 
@@ -267,6 +246,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
+    use rand::{rngs::ThreadRng, thread_rng, Rng};
+
     use crate::random::{IntoIterShuffled, WeightedList};
 
     use super::GetRandom;
@@ -393,6 +376,111 @@ mod tests {
         assert!(
             *min as f64 / TOTAL as f64 > 0.45,
             "{min} is not around 50% of {TOTAL}"
+        );
+    }
+
+    #[test]
+    fn bench_weighted_list() {
+        impl<T> WeightedList<T> {
+            fn get_mut(&mut self, rng: &mut ThreadRng) -> Option<(&mut T, usize)> {
+                match self.len() {
+                    0 => None,
+                    1 => self.items.first_mut().map(|(val, _)| (val, 0)),
+                    _ => {
+                        let needle = rng.gen_range(0.0..self.total_weight);
+                        let mut running_total = 0.0;
+
+                        for (i, (item, weight)) in self.items.iter_mut().enumerate() {
+                            running_total += *weight;
+                            if needle < running_total {
+                                return Some((item, i));
+                            }
+                        }
+
+                        panic!("Reached end without finding match");
+                    }
+                }
+            }
+
+            fn change_weight_bench(&mut self, mut index: usize, weight: f64) {
+                assert!(
+                    weight >= 0.0,
+                    "item weight must be greater than or equal to zero, given: {weight}"
+                );
+
+                let item = &mut self.items[index];
+                let old_weight = item.1;
+                self.total_weight = (self.total_weight - old_weight) + weight;
+                item.1 = weight;
+
+                //NB: Benchmarking that this is slower than not sorting
+                if old_weight < weight {
+                    //Bubble up
+                    while index > 0 && self.items[index - 1].1 < weight {
+                        self.items.swap(index, index - 1);
+                        index -= 1;
+                    }
+                } else {
+                    //Bubble down
+                    let max = self.len() - 1;
+                    while index < max && self.items[index + 1].1 > weight {
+                        self.items.swap(index, index + 1);
+                        index += 1;
+                    }
+                }
+            }
+        }
+
+        #[derive(Clone)]
+        struct W(usize);
+
+        let list = (0..100)
+            .map(|_| (W(20), 1.0 / (20 + 1) as f64))
+            .collect::<WeightedList<_>>();
+
+        let rng = &mut thread_rng();
+
+        let time_current = {
+            let start = Instant::now();
+
+            for _ in 0..10_000 {
+                let mut list = list.clone();
+                for _ in 0..200 {
+                    let (item, index) = list.get_mut(rng).unwrap();
+                    if rng.gen_range(0..100) <= 80 {
+                        item.0 += 1;
+                        let denom = (item.0 + 1) as f64;
+                        list.change_weight(index, 1.0 / denom);
+                    }
+                }
+            }
+
+            start.elapsed()
+        };
+
+        let time_bench = {
+            let start = Instant::now();
+
+            for _ in 0..10_000 {
+                let mut list = list.clone();
+                for _ in 0..200 {
+                    let (item, index) = list.get_mut(rng).unwrap();
+                    if rng.gen_range(0..100) <= 80 {
+                        item.0 += 1;
+                        let denom = (item.0 + 1) as f64;
+                        list.change_weight_bench(index, 1.0 / denom);
+                    }
+                }
+            }
+
+            start.elapsed()
+        };
+
+        assert!(
+            time_current < time_bench,
+            "Current is not faster! Current: {}, Bench: {}",
+            time_current.as_millis(),
+            time_bench.as_millis()
         );
     }
 }
