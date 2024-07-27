@@ -209,7 +209,7 @@ impl<'a, T> WeightedListIterator<'a, T> {
     fn new(list: &'a WeightedList<T>, rng: &'a mut ThreadRng) -> Self {
         Self {
             list,
-            seen: Vec::with_capacity(list.len()),
+            seen: Vec::with_capacity(10),
             remaining_weight: list.total_weight,
             rng,
         }
