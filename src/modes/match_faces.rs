@@ -17,8 +17,6 @@ use crate::{
     ProblemResult,
 };
 
-const ANSWERS_PER_PROBLEM: usize = 4;
-
 pub fn match_faces(
     mut term: TerminalWrapper,
     args: ModeArguments,
@@ -91,7 +89,7 @@ pub fn match_faces(
 
 struct MatchProblemIterator<'a> {
     rng: &'a mut ThreadRng,
-    cards: WeightedList<DeckCard<'a>>,
+    weighted_deck_cards: WeightedList<DeckCard<'a>>,
     faces: Option<Vec<String>>,
 }
 
@@ -106,11 +104,15 @@ impl<'a> MatchProblemIterator<'a> {
             .into_iter()
             .map(|deck_card| (deck_card, stats.for_card(deck_card).weight()))
             .collect();
-        Self { rng, cards, faces }
+        Self {
+            rng,
+            weighted_deck_cards: cards,
+            faces,
+        }
     }
 
     fn change_weight(&mut self, index: usize, weight: f64) {
-        self.cards.change_weight(index, weight)
+        self.weighted_deck_cards.change_weight(index, weight)
     }
 }
 
@@ -118,7 +120,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
     type Item = Result<MatchProblem<'a>, FlashrError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let ((deck, card), i) = self.cards.get_random(self.rng)?;
+        let ((deck, card), i) = self.weighted_deck_cards.get_random(self.rng)?;
 
         let mut possible_faces = Vec::with_capacity(deck.faces.len());
         deck.faces
@@ -134,33 +136,37 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                         .clone()
                         .into_iter_shuffled(self.rng)
                         .find(|(_, face)| faces.iter().any(|specified| face == &specified))
-                        .unwrap();
+                        .expect("Unable to find a valid question face");
                     let (question_index, _) = question;
 
                     let answer = possible_faces
                         .into_iter_shuffled(self.rng)
                         .find(|(i, _)| *i != question_index)
-                        .unwrap();
+                        .expect("Unable to find a valid answer face");
 
                     (question, answer)
                 }
                 None => possible_faces
                     .into_iter_shuffled(self.rng)
                     .collect::<OptionTuple<_>>()
-                    .unwrap(),
+                    .expect("Unable to find valid question and answer faces"),
             };
 
-        let face_question = card[question_index].clone().unwrap();
-        let face_answer = card[answer_index].clone().unwrap();
+        let face_question = card[question_index]
+            .as_ref()
+            .expect("Unable to find question face on card");
+        let face_answer = card[answer_index]
+            .as_ref()
+            .expect("Unable to find answer face on card");
 
         let mut seen_faces = Vec::with_capacity(ANSWERS_PER_PROBLEM);
-        seen_faces.push(&face_answer);
+        seen_faces.push(face_answer);
 
         let mut answer_cards = Vec::with_capacity(ANSWERS_PER_PROBLEM);
 
-        answer_cards.push(((&face_answer, *card, i), true));
+        answer_cards.push(((face_answer, *card, i), true));
 
-        self.cards
+        self.weighted_deck_cards
             .clone()
             .into_iter_shuffled(self.rng)
             .filter_map(|(((deck, card), _), card_index)| {
@@ -194,7 +200,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
             .enumerate()
             .find(|(_, (_, correct))| *correct)
             .map(|(i, _)| i)
-            .unwrap();
+            .expect("Unable to find answer index after shuffling");
 
         Some(Ok(MatchProblem {
             deck,
@@ -250,6 +256,8 @@ struct MatchProblemWidgetState {
     answer_areas: Vec<Rect>,
 }
 
+const ANSWERS_PER_PROBLEM: usize = 4;
+
 impl Default for MatchProblemWidgetState {
     fn default() -> Self {
         Self {
@@ -279,15 +287,14 @@ impl StatefulWidget for MatchProblemWidget<'_> {
         )
         .split(area);
 
-        let question_area = layout[0];
-        let answer_area = layout[1];
-        let progress_area = layout[2];
+        let (question_area, answer_area, progress_area) = (layout[0], layout[1], layout[2]);
 
         let layout =
             Layout::new(Direction::Vertical, [Constraint::Ratio(1, 2); 2]).split(answer_area);
-        let answer_top = layout[0];
-        let answer_bot = layout[1];
+
+        let (answer_top, answer_bot) = (layout[0], layout[1]);
         let layout = Layout::new(Direction::Horizontal, [Constraint::Ratio(1, 2); 2]);
+
         let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
 
         let question = &self.problem.question.0;
