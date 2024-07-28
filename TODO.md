@@ -2,23 +2,14 @@
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
     - MVP mode should be called "match"
 - [ ] Additional mode: "mixed" - Random mix of all (non-flash) modes. Probably needs to implement a "count" argument for num times to test, as well as changing how problem generation works.
-- [ ] Prevent the same problem card twice in a row
-- [ ] Scroll boxes for dialogue which exceeds sizes
 - [ ] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
-- [ ] Match Mode: Track missed problems, and retry them (like duolingo, stretch goal)
-    - [ ] Track problem stats in a JSON
-    - [ ] Pick problems such that lowest done occurs most commonly. Can be achieved by sorting by (times_occured - times_wrong) ascending, and filtering any that have been seen too recently as well (eg something like Min(problems.len(), 10) problems must occur before showing a problem again)
-    - [ ] Repeat problems indefinitely in a loop
-    - [ ] Better logic for picking problem answers too? Something similar to how the question is picked? Ideally showing unknowns more commonly as answers too
 - [ ] A way to mark cards as needing extra practice. Something like a DF style bar on bottom, perhaps [a] key to go into add mode, and select answer to add. Perhaps works by creating incrementing a "needs_practice" counter, which could then be used in the problem selection logic for prioritization
 - [ ] Light mode/dark mode/contrast
+- [ ] Track stats for card faces as well (and show missed faces more often)
+- [ ] Hot-reload decks
+- [ ] Scroll boxes for dialogue which exceeds sizes
+- [ ] Prevent the same problem card twice in a row (maybe not worth?)
 - [ ] Repeat missed problems at end (Not sure anymore)
-- [x] Show all face information at end (maybe only if missed)?
-- [x] Deck "faces", to describe which face is which (to support hiragana only + kanji decks together)
-    - [x] Add "faces" Vec instead of "face_count"
-    - [x] Create tests based on what the faces "are". Eg, match Kanji with other Kanji and Hiragana with other Hiragana, but based on faces rather than face index
-    - [x] Check to ensure each card face has at least 3 (or number of other answers) other cards with non-equal faces
-        - [ ] Tested
 - [ ] Center text vertically (Not sure is possible/worth atm)
 - [x] Do not show answers which are same (eg same kana for a kanji)
 - [x] Add validation error ensuring all "faces" are unique per deck
@@ -30,3 +21,14 @@
 - [x] Refactor into infinite iterator
 - [x] Test and error if loaded Decks with same names
 - [x] Program Argument: "faces" - which faces to test on
+- [x] Show all face information at end (maybe only if missed)?
+- [x] Deck "faces", to describe which face is which (to support hiragana only + kanji decks together)
+    - [x] Add "faces" Vec instead of "face_count"
+    - [x] Create tests based on what the faces "are". Eg, match Kanji with other Kanji and Hiragana with other Hiragana, but based on faces rather than face index
+    - [x] Check to ensure each card face has at least 3 (or number of other answers) other cards with non-equal faces
+        - [ ] Tested
+- [x] Match Mode: Track missed problems, and retry them (like duolingo, stretch goal)
+    - [x] Track problem stats in a JSON
+    - [x] Pick problems such that lowest done occurs most commonly. Can be achieved by sorting by (times_occured - times_wrong) ascending, and filtering any that have been seen too recently as well (eg something like Min(problems.len(), 10) problems must occur before showing a problem again)
+    - [x] Repeat problems indefinitely in a loop
+    - [x] Better logic for picking problem answers too? Something similar to how the question is picked? Ideally showing unknowns more commonly as answers too
