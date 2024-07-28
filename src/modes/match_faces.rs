@@ -12,8 +12,7 @@ use crate::{
     random::{GetRandom, IntoIterShuffled, WeightedList},
     stats::Stats,
     terminal::TerminalWrapper,
-    CorrectIncorrect, DeckCard, FlashrError, ModeArguments, ModeResult, OptionTuple, ProblemResult,
-    PromptCard,
+    CorrectIncorrect, DeckCard, FlashrError, ModeArguments, ModeResult, OptionTuple, PromptCard,
 };
 
 pub fn match_faces(
@@ -27,25 +26,35 @@ pub fn match_faces(
 
     let mut total_correct = 0;
 
+    #[inline(always)]
+    fn update_correct(card: &PromptCard, stats: &mut Stats, problems: &mut MatchProblemIterator) {
+        let stats = stats.for_card_mut(card);
+        stats.correct += 1;
+        problems.change_weight(card.index, stats.weight());
+    }
+
+    #[inline(always)]
+    fn update_incorrect(card: &PromptCard, stats: &mut Stats, problems: &mut MatchProblemIterator) {
+        let stats = stats.for_card_mut(card);
+        stats.incorrect += 1;
+        problems.change_weight(card.index, stats.weight());
+    }
+
     if let Some(count) = args.problem_count {
         for _ in 0..count {
             if let Some(problem) = problems.next() {
-                let problem = &problem?;
-                let result = show_match_problem(term, problem, (total_correct, count))?;
-
-                if result.is_quit() {
-                    break;
-                } else {
-                    let stats = stats.for_card_mut(&problem.question);
-
-                    if result.is_correct() {
-                        stats.correct += 1;
-                        total_correct += 1;
-                    } else {
-                        stats.incorrect += 1;
-                    }
-
-                    problems.change_weight(problem.question.index, stats.weight());
+                match show_match_problem(term, &problem?, (total_correct, count))? {
+                    Ok(result) => match result {
+                        MatchResult::Correct(card) => {
+                            total_correct += 1;
+                            update_correct(card, &mut stats, &mut problems);
+                        }
+                        MatchResult::Incorrect { q, a } => {
+                            update_incorrect(q, &mut stats, &mut problems);
+                            update_incorrect(a, &mut stats, &mut problems);
+                        }
+                    },
+                    Err(Quit) => break,
                 }
             } else {
                 break;
@@ -56,26 +65,23 @@ pub fn match_faces(
     } else {
         let mut total = 0;
 
-        for i in 0.. {
+        for _ in 0.. {
             if let Some(problem) = problems.next() {
-                let problem = &problem?;
-                let result = show_match_problem(term, problem, (total_correct, i))?;
-
-                if result.is_quit() {
-                    break;
-                } else {
-                    total += 1;
-
-                    let stats = stats.for_card_mut(&problem.question);
-
-                    if result.is_correct() {
-                        stats.correct += 1;
-                        total_correct += 1;
-                    } else {
-                        stats.incorrect += 1;
+                match show_match_problem(term, &problem?, (total_correct, total))? {
+                    Ok(result) => {
+                        total += 1;
+                        match result {
+                            MatchResult::Correct(card) => {
+                                total_correct += 1;
+                                update_correct(card, &mut stats, &mut problems);
+                            }
+                            MatchResult::Incorrect { q, a } => {
+                                update_incorrect(q, &mut stats, &mut problems);
+                                update_incorrect(a, &mut stats, &mut problems);
+                            }
+                        }
                     }
-
-                    problems.change_weight(problem.question.index, stats.weight());
+                    Err(_quit) => break,
                 }
             } else {
                 break;
@@ -434,11 +440,23 @@ impl Widget for MatchAnswerWidget {
     }
 }
 
-fn show_match_problem(
+struct Quit;
+
+type MatchProblemResult<'a, 'b> = Result<MatchResult<'a, 'b>, Quit>;
+
+enum MatchResult<'a, 'b> {
+    Correct(&'b PromptCard<'a>),
+    Incorrect {
+        q: &'b PromptCard<'a>,
+        a: &'b PromptCard<'a>,
+    },
+}
+
+fn show_match_problem<'a, 'b>(
     term: &mut TerminalWrapper,
-    problem: &MatchProblem,
+    problem: &'b MatchProblem<'a>,
     progress: CorrectIncorrect,
-) -> Result<ProblemResult, FlashrError> {
+) -> Result<MatchProblemResult<'a, 'b>, FlashrError> {
     let widget_state = &mut MatchProblemWidgetState::default();
 
     loop {
@@ -449,17 +467,17 @@ fn show_match_problem(
                 return show_match_problem_result(term, problem, progress, index_answered)
             }
             UserInput::Resize => continue,
-            UserInput::Quit => return Ok(ProblemResult::Quit),
+            UserInput::Quit => return Ok(Err(Quit)),
         }
     }
 }
 
-fn show_match_problem_result(
+fn show_match_problem_result<'a, 'b>(
     term: &mut TerminalWrapper,
-    problem: &MatchProblem,
+    problem: &'b MatchProblem<'a>,
     progress: CorrectIncorrect,
     index_answered: usize,
-) -> Result<ProblemResult, FlashrError> {
+) -> Result<MatchProblemResult<'a, 'b>, FlashrError> {
     let correct = index_answered == problem.answer_index;
     let widget_state = &mut MatchProblemWidgetState::default();
 
@@ -472,13 +490,21 @@ fn show_match_problem_result(
         match clear_and_match_event(|event| match_match_input(event, widget_state))? {
             UserInput::Answer(answer) if answer == problem.answer_index => {
                 return Ok(if correct {
-                    ProblemResult::Correct
+                    Ok(MatchResult::Correct(&problem.question))
                 } else {
-                    ProblemResult::Incorrect
+                    Ok(MatchResult::Incorrect {
+                        q: &problem.question,
+                        a: problem
+                            .answers
+                            .iter()
+                            .enumerate()
+                            .find_map(|(i, (card, _))| if i == answer { Some(card) } else { None })
+                            .expect("Unable to find selected answer in problem answers"),
+                    })
                 })
             }
             UserInput::Answer(_) | UserInput::Resize => continue,
-            UserInput::Quit => return Ok(ProblemResult::Quit),
+            UserInput::Quit => return Ok(Err(Quit)),
         }
     }
 }
