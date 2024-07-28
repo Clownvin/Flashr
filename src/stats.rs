@@ -152,7 +152,8 @@ impl CardStats {
     }
 
     pub fn weight(&self) -> f64 {
-        1.0 / (self.correct + 1) as f64
+        (1.0 / (self.correct.saturating_sub(self.incorrect) + 1) as f64)
+            + self.incorrect.saturating_sub(self.correct) as f64
     }
 }
 
