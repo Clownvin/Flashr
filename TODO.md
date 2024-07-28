@@ -1,4 +1,5 @@
 # TODOs
+- [ ] UX - Fix the middle box "column" in the answer section so that it always matches the answer selected
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
     - MVP mode should be called "match"
 - [ ] Additional mode: "mixed" - Random mix of all (non-flash) modes. Probably needs to implement a "count" argument for num times to test, as well as changing how problem generation works.
