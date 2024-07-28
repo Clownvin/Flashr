@@ -1,3 +1,5 @@
+use std::ops::AddAssign;
+
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
 use rand::prelude::{SliceRandom, ThreadRng};
 use ratatui::{
@@ -40,20 +42,33 @@ pub fn match_faces(
         problems.change_weight(card.index, stats.weight());
     }
 
+    #[inline(always)]
+    fn match_result(
+        result: MatchResult,
+        total_correct: &mut usize,
+        stats: &mut Stats,
+        problems: &mut MatchProblemIterator,
+    ) {
+        match result {
+            MatchResult::Correct(card) => {
+                total_correct.add_assign(1);
+                update_correct(card, stats, problems);
+            }
+            MatchResult::Incorrect { q, a } => {
+                update_incorrect(q, stats, problems);
+                update_incorrect(a, stats, problems);
+            }
+        }
+    }
+
     if let Some(count) = args.problem_count {
         for _ in 0..count {
             if let Some(problem) = problems.next() {
-                match show_match_problem(term, &problem?, (total_correct, count))? {
-                    Ok(result) => match result {
-                        MatchResult::Correct(card) => {
-                            total_correct += 1;
-                            update_correct(card, &mut stats, &mut problems);
-                        }
-                        MatchResult::Incorrect { q, a } => {
-                            update_incorrect(q, &mut stats, &mut problems);
-                            update_incorrect(a, &mut stats, &mut problems);
-                        }
-                    },
+                let progress = (total_correct, count);
+                match show_match_problem(term, &problem?, progress)? {
+                    Ok(result) => {
+                        match_result(result, &mut total_correct, &mut stats, &mut problems)
+                    }
                     Err(Quit) => break,
                 }
             } else {
@@ -67,19 +82,12 @@ pub fn match_faces(
 
         for _ in 0.. {
             if let Some(problem) = problems.next() {
-                match show_match_problem(term, &problem?, (total_correct, total))? {
+                let progress = (total_correct, total);
+                match show_match_problem(term, &problem?, progress)? {
                     Ok(result) => {
                         total += 1;
-                        match result {
-                            MatchResult::Correct(card) => {
-                                total_correct += 1;
-                                update_correct(card, &mut stats, &mut problems);
-                            }
-                            MatchResult::Incorrect { q, a } => {
-                                update_incorrect(q, &mut stats, &mut problems);
-                                update_incorrect(a, &mut stats, &mut problems);
-                            }
-                        }
+
+                        match_result(result, &mut total_correct, &mut stats, &mut problems)
                     }
                     Err(_quit) => break,
                 }
