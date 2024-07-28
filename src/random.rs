@@ -102,24 +102,31 @@ impl<T> WeightedList<T> {
         self.total_weight += weight;
     }
 
-    pub fn get(&self, rng: &mut ThreadRng) -> Option<(&T, usize)> {
+    fn get_index(&self, rng: &mut ThreadRng) -> Option<usize> {
         match self.len() {
             0 => None,
-            1 => self.items.first().map(|(val, _)| (val, 0)),
+            1 => Some(0),
             _ => {
                 let needle = rng.gen_range(0.0..self.total_weight);
                 let mut running_total = 0.0;
 
-                for (i, (item, weight)) in self.items.iter().enumerate() {
+                for (i, (_, weight)) in self.items.iter().enumerate() {
                     running_total += *weight;
                     if needle < running_total {
-                        return Some((item, i));
+                        return Some(i);
                     }
                 }
 
                 panic!("Reached end without finding match");
             }
         }
+    }
+
+    pub fn get(&self, rng: &mut ThreadRng) -> Option<(&T, usize)> {
+        self.get_index(rng).map(|index| {
+            let (item, _) = self.items.get(index).expect("Unable to find item at index");
+            (item, index)
+        })
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
@@ -181,28 +188,11 @@ impl<T> RemoveRandom for WeightedList<T> {
     type Item = (ItemAndWeight<T>, usize);
 
     fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item> {
-        match self.len() {
-            0 => None,
-            1 => {
-                let item = self.items.swap_remove(0);
-                self.total_weight = 0.0;
-                Some((item, 0))
-            }
-            _ => {
-                let needle = rng.gen_range(0.0..self.total_weight);
-                let mut running_total = 0.0;
-
-                for (i, (_, weight)) in self.items.iter().enumerate() {
-                    running_total += weight;
-                    if needle < running_total {
-                        self.total_weight -= weight;
-                        return Some((self.items.swap_remove(i), i));
-                    }
-                }
-
-                panic!("Reached end without finding match");
-            }
-        }
+        self.get_index(rng).map(|index| {
+            let item = self.items.swap_remove(index);
+            self.total_weight -= item.1;
+            (item, index)
+        })
     }
 }
 
