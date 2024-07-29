@@ -33,3 +33,4 @@
     - [x] Pick problems such that lowest done occurs most commonly. Can be achieved by sorting by (times_occured - times_wrong) ascending, and filtering any that have been seen too recently as well (eg something like Min(problems.len(), 10) problems must occur before showing a problem again)
     - [x] Repeat problems indefinitely in a loop
     - [x] Better logic for picking problem answers too? Something similar to how the question is picked? Ideally showing unknowns more commonly as answers too
+- [x] Fix - Don't show answers with same question face as problem (eg 海 and 皆, both have on-yomi of カイ)

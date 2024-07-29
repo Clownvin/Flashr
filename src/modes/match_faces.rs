@@ -183,32 +183,55 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
             .clone()
             .into_iter_shuffled(self.rng)
             .filter_map(|((deck_card, _), card_index)| {
-                deck_card
-                    .deck
-                    .faces
-                    .iter()
-                    .enumerate()
-                    .find_map(|(face_index, face)| {
-                        if face != answer_face {
-                            None
-                        } else {
-                            deck_card.card[face_index].as_ref().and_then(|face| {
-                                if seen_faces.contains(&face) {
-                                    None
-                                } else {
-                                    seen_faces.push(face);
-                                    Some(((face, deck_card, card_index), false))
-                                }
-                            })
-                        }
-                    })
+                let card_answer_face =
+                    deck_card
+                        .deck
+                        .faces
+                        .iter()
+                        .enumerate()
+                        .find_map(|(i, face)| {
+                            if face == answer_face {
+                                deck_card.card[i].as_ref()
+                            } else {
+                                None
+                            }
+                        })?;
+
+                if seen_faces.contains(&card_answer_face) {
+                    return None;
+                } else {
+                    seen_faces.push(card_answer_face);
+                }
+
+                let card_question_face =
+                    deck_card
+                        .deck
+                        .faces
+                        .iter()
+                        .enumerate()
+                        .find_map(|(i, face)| {
+                            if face == question_face {
+                                deck_card[i].as_ref()
+                            } else {
+                                None
+                            }
+                        });
+
+                if card_question_face
+                    .map(|card_question_face| card_question_face == problem_question_face)
+                    .unwrap_or(false)
+                {
+                    return None;
+                }
+
+                Some(((card_answer_face, deck_card, card_index), false))
             })
             .take(ANSWERS_PER_PROBLEM - 1)
             .for_each(|answer_card| answer_cards.push(answer_card));
 
         if answer_cards.len() < ANSWERS_PER_PROBLEM {
-            let deck = &problem_deck_card.deck.name;
-            return Some(Err(FlashrError::DeckMismatch(format!("Cannot find enough answers for question {problem_question_face}, which is a \"{question_face}\" face, from deck {deck}, given answer face \"{answer_face}\""))));
+            let deck_name = &problem_deck_card.deck.name;
+            return Some(Err(FlashrError::DeckMismatch(format!("Cannot find enough answers for question {problem_question_face}, which is a \"{question_face}\" face, from deck {deck_name}, given answer face \"{answer_face}\""))));
         }
 
         answer_cards.shuffle(self.rng);
@@ -216,8 +239,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
         let answer_index = answer_cards
             .iter()
             .enumerate()
-            .find(|(_, (_, correct))| *correct)
-            .map(|(i, _)| i)
+            .find_map(|(i, (_, correct))| if *correct { Some(i) } else { None })
             .expect("Unable to find answer index after shuffling");
 
         Some(Ok(MatchProblem {
@@ -560,7 +582,7 @@ mod test {
         let rng = &mut rand::thread_rng();
         let problems = MatchProblemIterator::new(args.deck_cards, &mut args.stats, args.faces, rng);
 
-        for problem in problems.take(100) {
+        for problem in problems.take(1000) {
             let problem = problem.expect("Unable to get problem");
             assert!(problem
                 .answers
@@ -571,12 +593,14 @@ mod test {
                 .answers
                 .iter()
                 .enumerate()
-                .all(|(ref i, (answer, _))| problem
+                .all(|(ref i, (answer, correct))| problem
                     .answers
                     .iter()
                     .enumerate()
                     .filter(|(j, _)| i != j)
-                    .all(|(_, (other_answer, _))| other_answer.prompt != answer.prompt)))
+                    .all(|(_, (other_answer, _))| other_answer.prompt != answer.prompt)
+                    //NOTE: This check requires that deck1.json has two cards with same last face
+                    && (*correct || answer.deck_card.last() != problem.question.deck_card.last())));
         }
     }
 
