@@ -483,7 +483,11 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
 }
 
 fn validate_decks(decks: &[Deck]) -> Result<(), DeckError> {
-    let deck_names = decks.iter().map(|deck| &deck.name).collect::<Vec<_>>();
+    let deck_names = {
+        let mut buf = Vec::with_capacity(decks.len());
+        decks.iter().for_each(|deck| buf.push(&deck.name));
+        buf
+    };
 
     if let Some(name) = deck_names.iter().enumerate().find_map(|(i, deck_a)| {
         if deck_names
