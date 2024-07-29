@@ -127,12 +127,15 @@ impl<'a> ModeArguments<'a> {
 
         if let Some(faces) = faces.as_ref() {
             for deck in decks.iter() {
-                let mut deck_faces = Vec::with_capacity(deck.faces.len());
-                deck.faces
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, deck_face)| faces.iter().any(|face| face == *deck_face))
-                    .for_each(|(i, _)| deck_faces.push(i));
+                let deck_faces = {
+                    let mut buf = Vec::with_capacity(deck.faces.len());
+                    deck.faces
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, deck_face)| faces.iter().any(|face| face == *deck_face))
+                        .for_each(|(i, _)| buf.push(i));
+                    buf
+                };
 
                 if deck_faces.is_empty() {
                     continue;
