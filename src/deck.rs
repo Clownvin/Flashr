@@ -76,12 +76,14 @@ impl Card {
             "Cards must have at least two non-none faces"
         );
 
-        Self(
+        Self({
+            let mut buf = Vec::with_capacity(faces.len());
             faces
                 .into_iter()
                 .map(|face| face.map(|face| face.into()))
-                .collect(),
-        )
+                .for_each(|face| buf.push(face));
+            buf
+        })
     }
 
     pub fn join(&self, sep: &str) -> String {
