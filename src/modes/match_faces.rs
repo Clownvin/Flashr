@@ -89,7 +89,7 @@ pub fn match_faces(
 
                         match_result(result, &mut total_correct, &mut stats, &mut problems)
                     }
-                    Err(_quit) => break,
+                    Err(Quit) => break,
                 }
             } else {
                 break;
