@@ -249,10 +249,10 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                 deck_card: *problem_deck_card,
                 index: problem_index,
             },
-            answers: answer_cards
-                .into_iter()
-                .map(|((answer_face, answer_deck_card, answer_index), correct)| {
-                    (
+            answers: {
+                let mut buf = Vec::with_capacity(ANSWERS_PER_PROBLEM);
+                for ((answer_face, answer_deck_card, answer_index), correct) in answer_cards {
+                    buf.push((
                         PromptCard {
                             prompt: answer_face
                                 .join_random(answer_face.infer_separator(), self.rng),
@@ -260,9 +260,10 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                             index: answer_index,
                         },
                         correct,
-                    )
-                })
-                .collect(),
+                    ));
+                }
+                buf
+            },
             answer_index,
         }))
     }
