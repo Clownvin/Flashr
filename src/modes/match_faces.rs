@@ -113,17 +113,17 @@ impl<'a> MatchProblemIterator<'a> {
         faces: Option<Vec<String>>,
         rng: &'a mut ThreadRng,
     ) -> Self {
-        let cards = deck_cards
-            .into_iter()
-            .map(|deck_card| {
-                let weight = stats.for_card(&deck_card).weight();
-                (deck_card, weight)
-            })
-            .collect();
         Self {
             rng,
-            weighted_deck_cards: cards,
             faces,
+            weighted_deck_cards: {
+                let mut buf = WeightedList::with_capacity(deck_cards.len());
+                deck_cards.into_iter().for_each(|deck_card| {
+                    let weight = stats.for_card(&deck_card).weight();
+                    buf.add((deck_card, weight));
+                });
+                buf
+            },
         }
     }
 
