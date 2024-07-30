@@ -1,7 +1,11 @@
 #![feature(iter_intersperse)]
 use clap::Parser;
 use stats::{Stats, StatsError};
-use std::{fmt::Display, ops::Deref, str::FromStr};
+use std::{
+    fmt::Display,
+    ops::{Deref, Not},
+    str::FromStr,
+};
 
 use deck::{load_decks, Card, CardId, Deck, DeckError};
 use modes::match_faces::match_faces;
@@ -53,12 +57,11 @@ impl<'a> DeckCard<'a> {
 
     fn possible_faces(&self) -> Vec<(usize, &String)> {
         let mut possible_faces = Vec::with_capacity(self.deck.faces.len());
-        self.deck
-            .faces
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| self.card[*i].is_some())
-            .for_each(|face| possible_faces.push(face));
+        for face in self.deck.faces.iter().enumerate() {
+            if self.card[face.0].is_some() {
+                possible_faces.push(face);
+            }
+        }
         possible_faces
     }
 }
@@ -130,12 +133,15 @@ impl<'a> ModeArguments<'a> {
         faces: Faces,
         line: bool,
     ) -> Self {
-        let mut deck_cards = Vec::with_capacity(decks.iter().fold(0, |total, deck| {
-            total + (deck.cards.len() * deck.faces.len())
-        }));
+        let mut deck_cards = {
+            let max_num_problems = decks.iter().fold(0, |total, deck| {
+                total + (deck.cards.len() * deck.faces.len())
+            });
+            Vec::with_capacity(max_num_problems)
+        };
 
         if let Some(faces) = faces.as_ref() {
-            for deck in decks.iter() {
+            for deck in decks {
                 let deck_faces = {
                     let mut buf = Vec::with_capacity(deck.faces.len());
                     deck.faces
@@ -146,20 +152,16 @@ impl<'a> ModeArguments<'a> {
                     buf
                 };
 
-                if deck_faces.is_empty() {
-                    continue;
-                } else {
+                deck_faces.is_empty().not().then(|| {
                     for card in deck.cards.iter() {
                         if deck_faces.iter().any(|i| card[*i].is_some()) {
                             deck_cards.push(DeckCard::new(deck, card));
-                        } else {
-                            // Don't push, no matching faces
                         }
                     }
-                }
+                });
             }
         } else {
-            for deck in decks.iter() {
+            for deck in decks {
                 for card in deck.cards.iter() {
                     deck_cards.push(DeckCard::new(deck, card));
                 }
@@ -194,12 +196,25 @@ impl<T> Deref for OptionTuple<T> {
 impl<T> FromIterator<T> for OptionTuple<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut iter = iter.into_iter();
-        if let Some(first) = iter.next() {
-            if let Some(second) = iter.next() {
-                return Self(Some((first, second)));
-            }
+        Self(
+            iter.next()
+                .and_then(|first| iter.next().map(|second| (first, second))),
+        )
+    }
+}
+
+trait AndThen {
+    fn and_then<T>(&self, f: impl FnOnce() -> Option<T>) -> Option<T>;
+}
+
+impl AndThen for bool {
+    #[inline]
+    fn and_then<T>(&self, f: impl FnOnce() -> Option<T>) -> Option<T> {
+        if *self {
+            f()
+        } else {
+            None
         }
-        Self(None)
     }
 }
 

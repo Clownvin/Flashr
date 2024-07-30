@@ -154,64 +154,67 @@ impl StatefulWidget for MatchProblemWidget<'_> {
             None => {
                 question.render(question_area, buf);
 
-                self.problem
-                    .answers
-                    .iter()
-                    .enumerate()
-                    .for_each(|(answer_index, (answer, _))| {
-                        let answer_area = answer_areas[answer_index];
-                        state.answer_areas[answer_index] = answer_area;
+                for (answer_index, (answer, _)) in self.problem.answers.iter().enumerate() {
+                    let answer_area = answer_areas[answer_index];
+                    state.answer_areas[answer_index] = answer_area;
 
-                        MatchAnswerWidget::new(answer.prompt.to_owned(), answer_index)
-                            .render(answer_area, buf)
-                    });
+                    MatchAnswerWidget::new(answer.prompt.to_owned(), answer_index)
+                        .render(answer_area, buf)
+                }
 
                 divider_top.render(divider_top_area, buf);
                 divider_bot.render(divider_bot_area, buf);
             }
             Some((answered_index, correct)) => {
-                question
-                    .fg(if correct { Color::Green } else { Color::Red })
-                    .render(question_area, buf);
+                {
+                    let color = if correct { Color::Green } else { Color::Red };
+                    question.fg(color).render(question_area, buf);
+                }
 
-                self.problem.answers.iter().enumerate().for_each(
-                    |(answer_index, (answer, is_correct))| {
-                        let answer_area = answer_areas[answer_index];
-                        state.answer_areas[answer_index] = answer_area;
+                for (answer_index, (answer, is_correct)) in self.problem.answers.iter().enumerate()
+                {
+                    let is_answered = answer_index == answered_index;
 
-                        let is_answered = answer_index == answered_index;
-                        MatchAnswerWidget::new(answer.deck_card.join("\n"), answer_index)
-                            .answered((*is_correct, is_answered))
-                            .render(answer_area, buf)
-                    },
-                );
+                    let answer_area = answer_areas[answer_index];
+                    state.answer_areas[answer_index] = answer_area;
 
-                divider_top
-                    .fg(if answered_index < 2 {
-                        if correct {
+                    MatchAnswerWidget::new(answer.deck_card.join("\n"), answer_index)
+                        .answered((*is_correct, is_answered))
+                        .render(answer_area, buf)
+                }
+
+                {
+                    let color = {
+                        if answered_index < 2 {
+                            if correct {
+                                Color::Green
+                            } else {
+                                Color::Red
+                            }
+                        } else if self.problem.answer_index < 2 {
                             Color::Green
                         } else {
-                            Color::Red
+                            Color::default()
                         }
-                    } else if self.problem.answer_index < 2 {
-                        Color::Green
-                    } else {
-                        Color::default()
-                    })
-                    .render(divider_top_area, buf);
-                divider_bot
-                    .fg(if answered_index >= 2 {
-                        if correct {
+                    };
+                    divider_top.fg(color).render(divider_top_area, buf);
+                }
+                {
+                    let color = {
+                        if answered_index >= 2 {
+                            if correct {
+                                Color::Green
+                            } else {
+                                Color::Red
+                            }
+                        } else if self.problem.answer_index >= 2 {
                             Color::Green
                         } else {
-                            Color::Red
+                            Color::default()
                         }
-                    } else if self.problem.answer_index >= 2 {
-                        Color::Green
-                    } else {
-                        Color::default()
-                    })
-                    .render(divider_bot_area, buf);
+                    };
+                    divider_bot.fg(color).render(divider_bot_area, buf);
+                }
             }
         }
 
@@ -370,9 +373,9 @@ impl WeightLineWidget {
             weights: {
                 let diff = max - min;
                 let mut buf = Vec::with_capacity(weights.len());
-                weights.into_iter().for_each(|(weight, percent)| {
+                for (weight, percent) in weights {
                     buf.push(((1.0 - ((weight - min) / diff)), percent))
-                });
+                }
                 buf
             },
         }

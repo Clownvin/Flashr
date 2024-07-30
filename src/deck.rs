@@ -9,7 +9,7 @@ use std::{
 use rand::{rngs::ThreadRng, seq::SliceRandom};
 use serde::{de::Visitor, ser::SerializeSeq, Deserialize, Serialize};
 
-use crate::DeckCard;
+use crate::{AndThen, DeckCard};
 
 ///Represents a deck of flashcards. Each card must have the same number of faces as
 ///the deck's own faces array, though any number of those faces may optionally be null/None
@@ -457,17 +457,12 @@ fn validate_deck(deck: Deck) -> Result<Deck, DeckError> {
     if let Some(card_box) = deck.iter().enumerate().find_map(|(i, card_a)| {
         card_a.front().and_then(|front_a| {
             deck.iter().enumerate().find_map(|(j, card_b)| {
-                if i != j {
+                (i != j).and_then(|| {
                     card_b.front().and_then(|front_b| {
-                        if front_a == front_b {
-                            Some(Box::new((front_a.clone(), card_a.clone(), card_b.clone())))
-                        } else {
-                            None
-                        }
+                        (front_a == front_b)
+                            .then(|| Box::new((front_a.clone(), card_a.clone(), card_b.clone())))
                     })
-                } else {
-                    None
-                }
+                })
             })
         })
     }) {
@@ -488,15 +483,11 @@ fn validate_decks(decks: &[Deck]) -> Result<(), DeckError> {
     };
 
     if let Some(name) = deck_names.iter().enumerate().find_map(|(i, deck_a)| {
-        if deck_names
+        deck_names
             .iter()
             .enumerate()
             .any(|(j, deck_b)| i != j && deck_a == deck_b)
-        {
-            Some(deck_a)
-        } else {
-            None
-        }
+            .then_some(deck_a)
     }) {
         return Err(DeckError::DuplicateDeckNames((*name).clone()));
     }

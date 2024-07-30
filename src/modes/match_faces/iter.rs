@@ -4,7 +4,7 @@ use crate::{
     random::{GetRandom, IntoIterShuffled},
     stats::Stats,
     weighted_list::WeightedList,
-    DeckCard, FlashrError, OptionTuple, PromptCard,
+    AndThen, DeckCard, FlashrError, OptionTuple, PromptCard,
 };
 
 use super::{MatchProblem, ANSWERS_PER_PROBLEM};
@@ -103,11 +103,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                         .iter()
                         .enumerate()
                         .find_map(|(i, face)| {
-                            if face == answer_face {
-                                deck_card.card[i].as_ref()
-                            } else {
-                                None
-                            }
+                            (face == answer_face).and_then(|| deck_card.card[i].as_ref())
                         })?;
 
                 if seen_faces.contains(&card_answer_face) {
@@ -116,24 +112,23 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                     seen_faces.push(card_answer_face);
                 }
 
-                let card_question_face =
-                    deck_card
-                        .deck
-                        .faces
-                        .iter()
-                        .enumerate()
-                        .find_map(|(i, face)| {
-                            if face == question_face {
-                                deck_card[i].as_ref()
-                            } else {
-                                None
-                            }
-                        });
+                let card_question_face_matches_problem = {
+                    let card_question_face =
+                        deck_card
+                            .deck
+                            .faces
+                            .iter()
+                            .enumerate()
+                            .find_map(|(i, face)| {
+                                (face == question_face).and_then(|| deck_card[i].as_ref())
+                            });
 
-                if card_question_face
-                    .map(|card_question_face| card_question_face == problem_question_face)
-                    .unwrap_or(false)
-                {
+                    card_question_face
+                        .map(|card_question_face| card_question_face == problem_question_face)
+                        .unwrap_or(false)
+                };
+
+                if card_question_face_matches_problem {
                     return None;
                 }
 
@@ -152,7 +147,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
         let answer_index = answer_cards
             .iter()
             .enumerate()
-            .find_map(|(i, (_, correct))| if *correct { Some(i) } else { None })
+            .find_map(|(i, (_, correct))| correct.then_some(i))
             .expect("Unable to find answer index after shuffling");
 
         Some(Ok(MatchProblem {
@@ -164,27 +159,21 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
             },
             answers: {
                 let mut buf = Vec::with_capacity(ANSWERS_PER_PROBLEM);
-                answer_cards.into_iter().for_each(
-                    |((answer_face, answer_deck_card, answer_index), correct)| {
-                        buf.push((
-                            PromptCard {
-                                prompt: answer_face
-                                    .join_random(answer_face.infer_separator(), self.rng),
-                                deck_card: answer_deck_card,
-                                index: answer_index,
-                            },
-                            correct,
-                        ))
-                    },
-                );
+                for ((answer_face, answer_deck_card, answer_index), correct) in answer_cards {
+                    buf.push((
+                        PromptCard {
+                            prompt: answer_face
+                                .join_random(answer_face.infer_separator(), self.rng),
+                            deck_card: answer_deck_card,
+                            index: answer_index,
+                        },
+                        correct,
+                    ))
+                }
                 buf
             },
             answer_index,
-            weights: if self.line {
-                Some(self.weighted_deck_cards.weights())
-            } else {
-                None
-            },
+            weights: self.line.then(|| self.weighted_deck_cards.weights()),
         }))
     }
 }

@@ -168,13 +168,7 @@ fn show_match_problem_result<'a, 'b>(
                             .answers
                             .iter()
                             .enumerate()
-                            .find_map(|(i, (card, _))| {
-                                if i == index_answered {
-                                    Some(card)
-                                } else {
-                                    None
-                                }
-                            })
+                            .find_map(|(i, (card, _))| (i == index_answered).then_some(card))
                             .expect("Unable to find selected answer in problem answers"),
                     })
                 })
