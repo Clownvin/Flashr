@@ -128,7 +128,8 @@ fn show_match_problem<'a, 'b>(
     loop {
         term.render_stateful_widget(MatchProblemWidget::new(problem, progress), widget_state)?;
 
-        match clear_and_match_event(|event| match_match_input(event, widget_state))? {
+        let input = clear_and_match_event(|event| match_user_input(event, widget_state))?;
+        match input {
             UserInput::Answer(index_answered) => {
                 return show_match_problem_result(term, problem, progress, index_answered)
             }
@@ -153,7 +154,8 @@ fn show_match_problem_result<'a, 'b>(
             widget_state,
         )?;
 
-        match clear_and_match_event(|event| match_match_input(event, widget_state))? {
+        let input = clear_and_match_event(|event| match_user_input(event, widget_state))?;
+        match input {
             UserInput::Answer(answer) if answer == problem.answer_index => {
                 return Ok(if correct {
                     Ok(MatchResult::Correct(&problem.question))
@@ -175,7 +177,7 @@ fn show_match_problem_result<'a, 'b>(
     }
 }
 
-fn match_match_input(event: Event, state: &MatchProblemWidgetState) -> Option<UserInput> {
+fn match_user_input(event: Event, state: &MatchProblemWidgetState) -> Option<UserInput> {
     match event {
         Event::Key(KeyEvent {
             kind: KeyEventKind::Press,
