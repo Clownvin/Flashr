@@ -324,32 +324,73 @@ impl StatefulWidget for MatchProblemWidget<'_> {
     ) where
         Self: Sized,
     {
-        let layout = Layout::new(
-            Direction::Vertical,
-            [
-                Constraint::Ratio(1, 3),
-                Constraint::Ratio(2, 3),
-                Constraint::Min(1),
-            ],
-        )
-        .split(area);
+        let (question_area, answer_areas, progress_area, (divider_top_area, divider_bot_area)) = {
+            let (question_area, answer_area, progress_area) = {
+                let layout = Layout::new(
+                    Direction::Vertical,
+                    [
+                        Constraint::Ratio(1, 3),
+                        Constraint::Ratio(2, 3),
+                        Constraint::Min(1),
+                    ],
+                );
+                let split = layout.split(area);
+                (split[0], split[1], split[2])
+            };
 
-        let (question_area, answer_area, progress_area) = (layout[0], layout[1], layout[2]);
+            let (answer_top, answer_bot) = {
+                let layout = Layout::new(Direction::Vertical, [Constraint::Ratio(1, 2); 2]);
+                let split = layout.split(answer_area);
+                (split[0], split[1])
+            };
 
-        let layout =
-            Layout::new(Direction::Vertical, [Constraint::Ratio(1, 2); 2]).split(answer_area);
+            let layout = Layout::new(
+                Direction::Horizontal,
+                [
+                    Constraint::Ratio(1, 2),
+                    Constraint::Min(1),
+                    Constraint::Ratio(1, 2),
+                ],
+            );
 
-        let (answer_top, answer_bot) = (layout[0], layout[1]);
-        let layout = Layout::new(Direction::Horizontal, [Constraint::Ratio(1, 2); 2]);
+            let (top_left, divider_top, top_right) = {
+                let split = layout.split(answer_top);
+                (split[0], split[1], split[2])
+            };
 
-        let answer_areas = [layout.split(answer_top), layout.split(answer_bot)].concat();
+            let (bot_left, divider_bot, bot_right) = {
+                let split = layout.split(answer_bot);
+                (split[0], split[1], split[2])
+            };
+
+            (
+                question_area,
+                [top_left, top_right, bot_left, bot_right],
+                progress_area,
+                (divider_top, divider_bot),
+            )
+        };
+
+        let question = Paragraph::new(self.problem.question.prompt.to_owned())
+            .wrap(Wrap { trim: false })
+            .centered();
+
+        let divider_top = Block::new()
+            .borders(Borders::RIGHT | Borders::TOP)
+            .border_set(border::Set {
+                top_right: line::DOUBLE_HORIZONTAL_DOWN,
+                ..border::DOUBLE
+            });
+        let divider_bot = Block::new()
+            .borders(Borders::RIGHT | Borders::TOP)
+            .border_set(border::Set {
+                top_right: line::DOUBLE_CROSS,
+                ..border::DOUBLE
+            });
 
         match self.answer {
             None => {
-                Paragraph::new(self.problem.question.prompt.to_owned())
-                    .wrap(Wrap { trim: false })
-                    .centered()
-                    .render(question_area, buf);
+                question.render(question_area, buf);
 
                 self.problem
                     .answers
@@ -362,11 +403,12 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                         MatchAnswerWidget::new(answer.prompt.to_owned(), answer_index)
                             .render(answer_area, buf)
                     });
+
+                divider_top.render(divider_top_area, buf);
+                divider_bot.render(divider_bot_area, buf);
             }
             Some((answered_index, correct)) => {
-                Paragraph::new(self.problem.question.prompt.to_owned())
-                    .wrap(Wrap { trim: false })
-                    .centered()
+                question
                     .fg(if correct { Color::Green } else { Color::Red })
                     .render(question_area, buf);
 
@@ -381,22 +423,47 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                             .render(answer_area, buf)
                     },
                 );
+
+                divider_top
+                    .fg(if answered_index < 2 {
+                        if correct {
+                            Color::Green
+                        } else {
+                            Color::Red
+                        }
+                    } else {
+                        Color::default()
+                    })
+                    .render(divider_top_area, buf);
+                divider_bot
+                    .fg(if answered_index >= 2 {
+                        if correct {
+                            Color::Green
+                        } else {
+                            Color::Red
+                        }
+                    } else {
+                        Color::default()
+                    })
+                    .render(divider_bot_area, buf);
             }
         }
 
-        let (completed, total) = self.progress;
-        let ratio = if total == 0 {
-            0.0
-        } else {
-            completed as f64 / total as f64
-        };
-        let percent = ratio * 100.0;
+        {
+            let (completed, total) = self.progress;
+            let ratio = if total == 0 {
+                0.0
+            } else {
+                completed as f64 / total as f64
+            };
+            let percent = ratio * 100.0;
 
-        Gauge::default()
-            .ratio(ratio)
-            .label(format!("{percent:05.2}% ({completed}/{total})"))
-            .use_unicode(true)
-            .render(progress_area, buf);
+            Gauge::default()
+                .ratio(ratio)
+                .label(format!("{percent:05.2}% ({completed}/{total})"))
+                .use_unicode(true)
+                .render(progress_area, buf);
+        }
     }
 }
 
@@ -423,41 +490,13 @@ impl MatchAnswerWidget {
 
 impl Widget for MatchAnswerWidget {
     fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer) {
-        let top_row = self.answer_index < 2;
-        let left_side = self.answer_index % 2 == 0;
-
         Paragraph::new(format!("{}: {}", self.answer_index + 1, self.answer))
             .wrap(Wrap { trim: false })
             .centered()
             .block(
                 Block::bordered()
-                    .borders({
-                        let mut borders = Borders::TOP;
-                        if left_side {
-                            borders |= Borders::RIGHT;
-                        }
-                        borders
-                    })
-                    .border_set(border::Set {
-                        bottom_right: if !left_side {
-                            line::DOUBLE_BOTTOM_RIGHT
-                        } else {
-                            line::DOUBLE_HORIZONTAL_UP
-                        },
-                        bottom_left: line::DOUBLE_BOTTOM_LEFT,
-                        top_left: line::DOUBLE_VERTICAL_RIGHT,
-                        top_right: if top_row && left_side {
-                            line::DOUBLE_HORIZONTAL_DOWN
-                        } else if !left_side {
-                            line::DOUBLE_VERTICAL_LEFT
-                        } else {
-                            line::DOUBLE_CROSS
-                        },
-                        vertical_left: line::DOUBLE_VERTICAL,
-                        vertical_right: line::DOUBLE_VERTICAL,
-                        horizontal_top: line::DOUBLE_HORIZONTAL,
-                        horizontal_bottom: line::DOUBLE_HORIZONTAL,
-                    }),
+                    .borders(Borders::TOP)
+                    .border_set(border::DOUBLE),
             )
             .fg(match self.outcome {
                 None | Some((false, false)) => Color::default(),
