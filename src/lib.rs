@@ -27,7 +27,6 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
     let stats = Stats::load_from_user_home()?;
     let term = TerminalWrapper::new().map_err(UiError::IoError)?;
     let args = ModeArguments::new(&decks, stats, cli.problem_count, cli.faces, cli.line);
-    args.validate()?;
 
     let (correct_incorrect, stats) = match cli.mode {
         Mode::Match => match_faces(term, args),
@@ -174,12 +173,6 @@ impl<'a> ModeArguments<'a> {
             stats,
             line,
         }
-    }
-
-    //TODO add and test logic to make sure that each face asked for appears in some deck
-    //TODO add and test logic to make sure that each face has at least one problem?
-    fn validate(&self) -> Result<(), ArgError> {
-        Ok(())
     }
 }
 
