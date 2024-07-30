@@ -14,6 +14,7 @@ mod modes;
 mod random;
 mod stats;
 mod terminal;
+mod weighted_list;
 
 pub fn run() -> Result<CorrectIncorrect, FlashrError> {
     let cli = cli::FlashrCli::parse();

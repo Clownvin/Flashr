@@ -11,9 +11,10 @@ use ratatui::{
 
 use crate::{
     event::{clear_and_match_event, UserInput},
-    random::{GetRandom, IntoIterShuffled, WeightedList},
+    random::{GetRandom, IntoIterShuffled},
     stats::Stats,
     terminal::TerminalWrapper,
+    weighted_list::WeightedList,
     CorrectIncorrect, DeckCard, FlashrError, ModeArguments, ModeResult, OptionTuple, PromptCard,
 };
 
@@ -148,6 +149,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                         .into_iter_shuffled(self.rng)
                         .find(|(_, face)| faces.iter().any(|specified| face == &specified))
                         .expect("Unable to find a valid question face");
+
                     let (question_index, _) = question;
 
                     let answer = possible_faces
