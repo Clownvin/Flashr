@@ -205,14 +205,19 @@ mod test {
                 .answers
                 .iter()
                 .enumerate()
-                .all(|(ref i, (answer, correct))| problem
-                    .answers
-                    .iter()
-                    .enumerate()
-                    .filter(|(j, _)| i != j)
-                    .all(|(_, (other_answer, _))| other_answer.prompt != answer.prompt)
+                .all(|(ref i, (answer, correct))| {
+                    //Ensure no answers are the same
+                    problem
+                        .answers
+                        .iter()
+                        .enumerate()
+                        .filter(|(j, _)| i != j)
+                        .all(|(_, (other_answer, _))| other_answer.prompt != answer.prompt)
+
+                    //And also ensure that no answer's "question face" is the same as the problem's
                     //NOTE: This check requires that deck1.json has two cards with same last face
-                    && (*correct || answer.deck_card.last() != problem.question.deck_card.last())));
+                    && (*correct || answer.deck_card.last() != problem.question.deck_card.last())
+                }));
         }
     }
 
