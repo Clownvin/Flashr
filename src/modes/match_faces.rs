@@ -431,6 +431,8 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                         } else {
                             Color::Red
                         }
+                    } else if self.problem.answer_index < 2 {
+                        Color::Green
                     } else {
                         Color::default()
                     })
@@ -442,6 +444,8 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                         } else {
                             Color::Red
                         }
+                    } else if self.problem.answer_index >= 2 {
+                        Color::Green
                     } else {
                         Color::default()
                     })
