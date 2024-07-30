@@ -66,18 +66,6 @@ impl From<Color> for RatColor {
     }
 }
 
-/// Represents a linear gradient, from one or more colors into one or more colors.
-/// The "step" between each color is equal for all colors.
-///
-/// Examples:
-/// ```
-/// # use common::color::*;
-/// let rainbow = LinearGradient::rainbow();
-///
-/// assert!(rainbow.sample(0.0) == Color::RED);
-/// assert!(rainbow.sample(0.5) == Color::GREEN);
-/// assert!(rainbow.sample(1.0) == Color::BLUE);
-/// ```
 pub struct LinearGradient {
     colors: Vec<Color>,
 }
