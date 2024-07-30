@@ -15,6 +15,26 @@ use crate::{
 mod iter;
 mod widget;
 
+const ANSWERS_PER_PROBLEM: usize = 4;
+
+struct MatchProblem<'a> {
+    question: PromptCard<'a>,
+    answers: Vec<(PromptCard<'a>, bool)>,
+    answer_index: usize,
+}
+
+struct Quit;
+
+type MatchProblemResult<'a, 'b> = Result<MatchResult<'a, 'b>, Quit>;
+
+enum MatchResult<'a, 'b> {
+    Correct(&'b PromptCard<'a>),
+    Incorrect {
+        q: &'b PromptCard<'a>,
+        a: &'b PromptCard<'a>,
+    },
+}
+
 pub fn match_faces(
     mut term: TerminalWrapper,
     args: ModeArguments,
@@ -96,26 +116,6 @@ pub fn match_faces(
 
         Ok(((total_correct, total), stats))
     }
-}
-
-struct MatchProblem<'a> {
-    question: PromptCard<'a>,
-    answers: Vec<(PromptCard<'a>, bool)>,
-    answer_index: usize,
-}
-
-const ANSWERS_PER_PROBLEM: usize = 4;
-
-struct Quit;
-
-type MatchProblemResult<'a, 'b> = Result<MatchResult<'a, 'b>, Quit>;
-
-enum MatchResult<'a, 'b> {
-    Correct(&'b PromptCard<'a>),
-    Incorrect {
-        q: &'b PromptCard<'a>,
-        a: &'b PromptCard<'a>,
-    },
 }
 
 fn show_match_problem<'a, 'b>(
