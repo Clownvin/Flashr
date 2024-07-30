@@ -8,6 +8,7 @@ use modes::match_faces::match_faces;
 use terminal::TerminalWrapper;
 
 mod cli;
+mod color;
 pub mod deck;
 mod event;
 mod modes;
@@ -21,7 +22,7 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
     let decks = load_decks(cli.paths)?;
     let stats = Stats::load_from_user_home()?;
     let term = TerminalWrapper::new().map_err(UiError::IoError)?;
-    let args = ModeArguments::new(&decks, stats, cli.problem_count, cli.faces);
+    let args = ModeArguments::new(&decks, stats, cli.problem_count, cli.faces, cli.line);
     args.validate()?;
 
     let (correct_incorrect, stats) = match cli.mode {
@@ -118,10 +119,17 @@ struct ModeArguments<'a> {
     faces: Faces,
     deck_cards: Vec<DeckCard<'a>>,
     stats: Stats,
+    line: bool,
 }
 
 impl<'a> ModeArguments<'a> {
-    fn new(decks: &'a [Deck], stats: Stats, problem_count: ProblemCount, faces: Faces) -> Self {
+    fn new(
+        decks: &'a [Deck],
+        stats: Stats,
+        problem_count: ProblemCount,
+        faces: Faces,
+        line: bool,
+    ) -> Self {
         let mut deck_cards = Vec::with_capacity(decks.iter().fold(0, |total, deck| {
             total + (deck.cards.len() * deck.faces.len())
         }));
@@ -162,6 +170,7 @@ impl<'a> ModeArguments<'a> {
             faces,
             deck_cards,
             stats,
+            line,
         }
     }
 

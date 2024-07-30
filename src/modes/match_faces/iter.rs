@@ -13,6 +13,7 @@ pub(super) struct MatchProblemIterator<'a> {
     rng: &'a mut ThreadRng,
     weighted_deck_cards: WeightedList<DeckCard<'a>>,
     faces: Option<Vec<String>>,
+    line: bool,
 }
 
 impl<'a> MatchProblemIterator<'a> {
@@ -20,11 +21,13 @@ impl<'a> MatchProblemIterator<'a> {
         deck_cards: Vec<DeckCard<'a>>,
         stats: &mut Stats,
         faces: Option<Vec<String>>,
+        line: bool,
         rng: &'a mut ThreadRng,
     ) -> Self {
         Self {
             rng,
             faces,
+            line,
             weighted_deck_cards: {
                 let mut buf = WeightedList::with_capacity(deck_cards.len());
                 deck_cards.into_iter().for_each(|deck_card| {
@@ -177,6 +180,11 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                 buf
             },
             answer_index,
+            weights: if self.line {
+                Some(self.weighted_deck_cards.weights())
+            } else {
+                None
+            },
         }))
     }
 }
@@ -190,9 +198,10 @@ mod test {
     #[test]
     fn ensure_unique_question_answers() {
         let decks = load_decks(vec!["./tests/deck1.json"]).expect("Unable to load test deck");
-        let mut args = ModeArguments::new(&decks, Stats::new(), None, None);
+        let mut args = ModeArguments::new(&decks, Stats::new(), None, None, false);
         let rng = &mut rand::thread_rng();
-        let problems = MatchProblemIterator::new(args.deck_cards, &mut args.stats, args.faces, rng);
+        let problems =
+            MatchProblemIterator::new(args.deck_cards, &mut args.stats, args.faces, args.line, rng);
 
         for problem in problems.take(1000) {
             let problem = problem.expect("Unable to get problem");
@@ -225,10 +234,10 @@ mod test {
     fn fails_if_not_enough_unique_answers() {
         let decks = load_decks(vec!["./tests/duplicate_cards"])
             .expect("Unable to load duplicate cards test deck");
-        let mut args = ModeArguments::new(&decks, Stats::new(), None, None);
+        let mut args = ModeArguments::new(&decks, Stats::new(), None, None, false);
         let rng = &mut rand::thread_rng();
         let mut problems =
-            MatchProblemIterator::new(args.deck_cards, &mut args.stats, args.faces, rng);
+            MatchProblemIterator::new(args.deck_cards, &mut args.stats, args.faces, args.line, rng);
 
         assert!(problems
             .next()

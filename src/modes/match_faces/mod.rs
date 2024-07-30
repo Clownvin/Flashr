@@ -21,6 +21,7 @@ struct MatchProblem<'a> {
     question: PromptCard<'a>,
     answers: Vec<(PromptCard<'a>, bool)>,
     answer_index: usize,
+    weights: Option<Vec<f64>>,
 }
 
 struct Quit;
@@ -42,7 +43,8 @@ pub fn match_faces(
     let term = &mut term;
     let rng = &mut rand::thread_rng();
     let mut stats = args.stats;
-    let mut problems = MatchProblemIterator::new(args.deck_cards, &mut stats, args.faces, rng);
+    let mut problems =
+        MatchProblemIterator::new(args.deck_cards, &mut stats, args.faces, args.line, rng);
 
     let mut total_correct = 0;
 

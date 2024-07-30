@@ -348,15 +348,13 @@ impl Display for CardError {
     }
 }
 
-pub fn load_decks<P: Into<PathBuf>>(paths: Vec<P>) -> Result<Vec<Deck>, DeckError> {
-    let len = paths.len();
-
-    let decks = paths
-        .into_iter()
-        .try_fold(Vec::with_capacity(len), |mut decks, path| {
-            decks.extend(load_decks_from_path(path.into())?.into_iter().flatten());
-            Ok(decks)
-        })?;
+pub fn load_decks<P: Into<PathBuf>>(
+    paths: impl IntoIterator<Item = P>,
+) -> Result<Vec<Deck>, DeckError> {
+    let decks = paths.into_iter().try_fold(vec![], |mut decks, path| {
+        decks.extend(load_decks_from_path(path.into())?.into_iter().flatten());
+        Ok(decks)
+    })?;
 
     validate_decks(&decks)?;
 

@@ -2,10 +2,10 @@ use rand::{rngs::ThreadRng, Rng};
 
 use crate::random::{GetRandom, RemoveRandom};
 
-pub type ItemAndWeight<T> = (T, f64);
+pub(crate) type ItemAndWeight<T> = (T, f64);
 
 #[derive(Clone)]
-pub struct WeightedList<T> {
+pub(crate) struct WeightedList<T> {
     items: Vec<ItemAndWeight<T>>,
     total_weight: f64,
 }
@@ -80,8 +80,16 @@ impl<T> WeightedList<T> {
         item.1 = weight;
     }
 
+    #[inline]
     fn len(&self) -> usize {
         self.items.len()
+    }
+
+    #[inline]
+    pub fn weights(&self) -> Vec<f64> {
+        let mut buf = Vec::with_capacity(self.len());
+        self.items.iter().for_each(|(_, weight)| buf.push(*weight));
+        buf
     }
 }
 

@@ -15,6 +15,8 @@ pub struct FlashrCli {
         long_help = FACES_HELP
     )]
     pub faces: Option<Vec<String>>,
+    #[arg(long = "line", help = "Toggle the weight line", long_help = LINE_HELP, default_value_t = false)]
+    pub line: bool,
     #[arg(short = 'm', long = "mode", default_value_t = Mode::Match, value_name = "MODE", help = "Program mode", long_help = MODE_HELP)]
     pub mode: Mode,
     #[arg(help = "Deck JSON file/dir paths", long_help = PATHS_HELP)]
@@ -24,7 +26,8 @@ pub struct FlashrCli {
 const COUNT_HELP: &str = r#"Number of problems to show. If omitted, will continue indefinitely."#;
 const FACES_HELP: &str = r#"Faces to show problems for.
 Example Usage: flashr -f Front -f Back ./decks"#;
-const MODE_HELP: &str = r#"Possible values:
+const LINE_HELP: &str = r#"Toggle the weight line. This will render a bar chart at the top which represents the weights of the backing weighted list."#;
+const MODE_HELP: &str = r#"Program mode. Possible values:
     match   - Multiple choice matching problems
     type    - Shown a face, and asked to type the answer"#;
 const PATHS_HELP: &str = r#"Paths to load decks from. Can be individual files or directories."#;

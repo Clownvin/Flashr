@@ -1,11 +1,13 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Stylize},
+    style::{Color, Style, Stylize},
     symbols::{border, line},
-    widgets::{Block, Borders, Gauge, Paragraph, StatefulWidget, Widget, Wrap},
+    widgets::{
+        Bar, BarChart, BarGroup, Block, Borders, Gauge, Paragraph, StatefulWidget, Widget, Wrap,
+    },
 };
 
-use crate::CorrectIncorrect;
+use crate::{color::LinearGradient, CorrectIncorrect};
 
 use super::{MatchProblem, ANSWERS_PER_PROBLEM};
 
@@ -55,16 +57,48 @@ impl StatefulWidget for MatchProblemWidget<'_> {
     {
         let (question_area, answer_areas, progress_area, (divider_top_area, divider_bot_area)) = {
             let (question_area, answer_area, progress_area) = {
-                let layout = Layout::new(
-                    Direction::Vertical,
-                    [
-                        Constraint::Ratio(1, 3),
-                        Constraint::Ratio(2, 3),
-                        Constraint::Min(1),
-                    ],
-                );
-                let split = layout.split(area);
-                (split[0], split[1], split[2])
+                if let Some(weights) = self.problem.weights.as_ref() {
+                    let layout = Layout::new(
+                        Direction::Vertical,
+                        [
+                            Constraint::Ratio(1, 12),
+                            Constraint::Ratio(3, 12),
+                            Constraint::Ratio(8, 12),
+                            Constraint::Min(1),
+                        ],
+                    );
+                    let split = layout.split(area);
+                    let line_area = split[0];
+
+                    //NOTE: Rendering weightline here to save passing around line_area/checking
+                    //Options
+                    WeightLineWidget::new(
+                        weights,
+                        self.answer.map(|(answered, _)| {
+                            (
+                                self.problem.question.index,
+                                self.problem.answers[answered].0.index,
+                            )
+                        }),
+                        line_area.width as usize,
+                    )
+                    .render(line_area, buf);
+
+                    (split[1], split[2], split[3])
+                } else {
+                    let layout = Layout::new(
+                        Direction::Vertical,
+                        [
+                            Constraint::Ratio(1, 3),
+                            Constraint::Ratio(2, 3),
+                            Constraint::Min(1),
+                        ],
+                    );
+
+                    let split = layout.split(area);
+
+                    (split[0], split[1], split[2])
+                }
             };
 
             let (answer_top, answer_bot) = {
@@ -86,7 +120,6 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                 let split = layout.split(answer_top);
                 (split[0], split[1], split[2])
             };
-
             let (bot_left, divider_bot, bot_right) = {
                 let split = layout.split(answer_bot);
                 (split[0], split[1], split[2])
@@ -184,12 +217,12 @@ impl StatefulWidget for MatchProblemWidget<'_> {
 
         {
             let (completed, total) = self.progress;
-            let ratio = if total == 0 {
-                0.0
+            let (ratio, percent) = if total == 0 {
+                (0.0, 0.0)
             } else {
-                completed as f64 / total as f64
+                let ratio = completed as f64 / total as f64;
+                (ratio, ratio * 100.0)
             };
-            let percent = ratio * 100.0;
 
             Gauge::default()
                 .ratio(ratio)
@@ -242,5 +275,146 @@ impl Widget for MatchAnswerWidget {
                 }
             })
             .render(area, buf)
+    }
+}
+
+struct WeightLineWidget {
+    weights: Vec<(f64, Option<bool>)>,
+}
+
+impl WeightLineWidget {
+    fn new(weights: &[f64], answered: Option<(usize, usize)>, width: usize) -> Self {
+        let num_weights = weights.len();
+
+        let (weights, (min, max)) = if num_weights > width {
+            let mut data = Vec::with_capacity(width);
+
+            let ((big_window_size, small_window_size), (num_big, num_small)) = {
+                let big_window_size = (num_weights as f64 / width as f64).ceil() as usize;
+
+                debug_assert!(
+                    big_window_size >= 2,
+                    "Big window size must always be at least 2"
+                );
+
+                let small_window_size = big_window_size - 1;
+
+                let max_num_small =
+                    (num_weights as f64 / small_window_size as f64).floor() as usize;
+
+                let num_big = max_num_small - width;
+                let num_small = width - num_big;
+
+                ((big_window_size, small_window_size), (num_big, num_small))
+            };
+
+            let mut iter = weights.iter().enumerate();
+            let (mut min, mut max) = (f64::MAX, f64::MIN);
+
+            #[inline]
+            fn fold_next_window<'a, 'b>(
+                size: usize,
+                iter: &'b mut impl Iterator<Item = (usize, &'a f64)>,
+                answered: Option<&(usize, usize)>,
+            ) -> (f64, Option<bool>) {
+                (0..size).fold((0.0, None), |(total, selected), _| {
+                    let (i, w) = iter.next().expect("Unable to get next weight");
+
+                    let total = total + w;
+                    let selected = selected
+                        .filter(|s| *s)
+                        .or_else(|| answered.map(|(i_q, i_a)| *i_q == i || *i_a == i));
+
+                    (total / size as f64, selected)
+                })
+            }
+
+            for _ in 0..num_small {
+                let (avg, selected) =
+                    fold_next_window(small_window_size, &mut iter, answered.as_ref());
+
+                min = min.min(avg);
+                max = max.max(avg);
+                data.push((avg, selected));
+            }
+
+            for _ in 0..num_big {
+                let (avg, selected) =
+                    fold_next_window(big_window_size, &mut iter, answered.as_ref());
+
+                min = min.min(avg);
+                max = max.max(avg);
+                data.push((avg, selected));
+            }
+
+            (data, (min, max))
+        } else {
+            //NOTE: Allocating new array just so if-arms match
+            let mut data = Vec::with_capacity(num_weights);
+            let (mut min, mut max) = (f64::MAX, f64::MIN);
+
+            for (i, w) in weights.iter().enumerate() {
+                let weight = *w;
+                min = min.min(weight);
+                max = max.max(weight);
+                data.push((
+                    weight,
+                    answered.as_ref().map(|(i_q, i_a)| *i_q == i || *i_a == i),
+                ));
+            }
+
+            (data, (min, max))
+        };
+
+        Self {
+            weights: {
+                let diff = max - min;
+                let mut buf = Vec::with_capacity(weights.len());
+                weights.into_iter().for_each(|(weight, percent)| {
+                    buf.push(((1.0 - ((weight - min) / diff)), percent))
+                });
+                buf
+            },
+        }
+    }
+}
+
+impl Widget for WeightLineWidget {
+    fn render(self, area: Rect, buf: &mut ratatui::prelude::Buffer)
+    where
+        Self: Sized,
+    {
+        let mut chart = BarChart::default();
+
+        const PERCENT_SELECTED: f64 = 1.0;
+        const PERCENT_HIDDEN: f64 = 0.25;
+
+        for (w, selected) in self.weights.into_iter() {
+            let color = {
+                let color = LinearGradient::rainbow().sample(w);
+
+                selected
+                    .map(|selected| {
+                        color
+                            .percent(if selected {
+                                PERCENT_SELECTED
+                            } else {
+                                PERCENT_HIDDEN
+                            })
+                            .into()
+                    })
+                    .unwrap_or_else(|| color.into())
+            };
+
+            let style = Style::default().fg(color);
+
+            chart = chart.data(
+                BarGroup::default().bars(&[Bar::default()
+                    .value((w * u8::MAX as f64) as u64)
+                    .style(style)]),
+            );
+        }
+
+        chart.bar_gap(0).reversed().render(area, buf)
     }
 }
