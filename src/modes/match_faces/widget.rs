@@ -314,7 +314,6 @@ impl WeightLineWidget {
             let mut iter = weights.iter().enumerate();
             let (mut min, mut max) = (f64::MAX, f64::MIN);
 
-            #[inline]
             fn fold_next_window<'a, 'b>(
                 size: usize,
                 iter: &'b mut impl Iterator<Item = (usize, &'a f64)>,

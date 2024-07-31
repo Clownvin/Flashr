@@ -48,21 +48,18 @@ pub fn match_faces(
 
     let mut total_correct = 0;
 
-    #[inline(always)]
     fn update_correct(card: &PromptCard, stats: &mut Stats, problems: &mut MatchProblemIterator) {
         let stats = stats.for_card_mut(card);
         stats.correct += 1;
         problems.change_weight(card.index, stats.weight());
     }
 
-    #[inline(always)]
     fn update_incorrect(card: &PromptCard, stats: &mut Stats, problems: &mut MatchProblemIterator) {
         let stats = stats.for_card_mut(card);
         stats.incorrect += 1;
         problems.change_weight(card.index, stats.weight());
     }
 
-    #[inline(always)]
     fn match_result(
         result: MatchResult,
         total_correct: &mut usize,

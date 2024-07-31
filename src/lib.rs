@@ -201,7 +201,6 @@ trait AndThen {
 }
 
 impl AndThen for bool {
-    #[inline]
     fn and_then<T>(&self, f: impl FnOnce() -> Option<T>) -> Option<T> {
         if *self {
             f()

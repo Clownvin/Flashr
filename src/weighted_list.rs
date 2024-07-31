@@ -80,12 +80,10 @@ impl<T> WeightedList<T> {
         item.1 = weight;
     }
 
-    #[inline]
     fn len(&self) -> usize {
         self.items.len()
     }
 
-    #[inline]
     pub fn weights(&self) -> Vec<f64> {
         let mut buf = Vec::with_capacity(self.len());
         self.items.iter().for_each(|(_, weight)| buf.push(*weight));
