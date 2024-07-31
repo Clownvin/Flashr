@@ -61,21 +61,21 @@ impl Stats {
         }
     }
 
-    pub fn load_from_file(path: impl Into<PathBuf> + Clone) -> Result<Self, StatsError> {
-        let buf = path.clone().into();
-        if let Ok(metadata) = std::fs::metadata(&buf) {
+    pub fn load_from_file(path: impl Into<PathBuf>) -> Result<Self, StatsError> {
+        let path: PathBuf = path.into();
+        if let Ok(metadata) = std::fs::metadata(&path) {
             if metadata.is_file() {
-                let json = std::fs::read_to_string(&buf)
-                    .map_err(|err| StatsError::IoError(path.clone().into(), err))?;
+                let json = std::fs::read_to_string(&path)
+                    .map_err(|err| StatsError::IoError(path.clone(), err))?;
 
                 serde_json::from_str(&json)
                     .map(|StatsJson { card_stats }| Self {
-                        path: buf,
+                        path: path.clone(),
                         card_stats,
                     })
-                    .map_err(|err| StatsError::SerdeError(path.into(), err))
+                    .map_err(|err| StatsError::SerdeError(path, err))
             } else {
-                Err(StatsError::ConfigIsDir(buf))
+                Err(StatsError::ConfigIsDir(path))
             }
         } else {
             Ok(Self::new(path))
