@@ -9,7 +9,7 @@ use crate::{
     event::{clear_and_match_event, UserInput},
     stats::Stats,
     terminal::TerminalWrapper,
-    CorrectIncorrect, FlashrError, ModeArguments, ModeResult, PromptCard,
+    FlashrError, ModeArguments, ModeResult, PromptCard,
 };
 
 mod iter;
@@ -93,7 +93,7 @@ pub fn match_faces(
             }
         }
 
-        Ok(((total_correct, count), stats))
+        Ok((Some((total_correct, count)), stats))
     } else {
         let mut total = 0;
 
@@ -113,14 +113,14 @@ pub fn match_faces(
             }
         }
 
-        Ok(((total_correct, total), stats))
+        Ok((Some((total_correct, total)), stats))
     }
 }
 
 fn show_match_problem<'a, 'b>(
     term: &mut TerminalWrapper,
     problem: &'b MatchProblem<'a>,
-    progress: CorrectIncorrect,
+    progress: (usize, usize),
 ) -> Result<MatchProblemResult<'a, 'b>, FlashrError> {
     let widget_state = &mut MatchProblemWidgetState::default();
 
@@ -141,7 +141,7 @@ fn show_match_problem<'a, 'b>(
 fn show_match_problem_result<'a, 'b>(
     term: &mut TerminalWrapper,
     problem: &'b MatchProblem<'a>,
-    progress: CorrectIncorrect,
+    progress: (usize, usize),
     index_answered: usize,
 ) -> Result<MatchProblemResult<'a, 'b>, FlashrError> {
     let correct = index_answered == problem.answer_index;

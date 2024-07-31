@@ -7,18 +7,18 @@ use ratatui::{
     },
 };
 
-use crate::{color::LinearGradient, CorrectIncorrect};
+use crate::color::LinearGradient;
 
 use super::{MatchProblem, ANSWERS_PER_PROBLEM};
 
 pub(super) struct MatchProblemWidget<'a> {
     problem: &'a MatchProblem<'a>,
-    progress: CorrectIncorrect,
+    progress: (usize, usize),
     answer: Option<(usize, bool)>,
 }
 
 impl<'a> MatchProblemWidget<'a> {
-    pub(super) fn new(problem: &'a MatchProblem<'a>, progress: CorrectIncorrect) -> Self {
+    pub(super) fn new(problem: &'a MatchProblem<'a>, progress: (usize, usize)) -> Self {
         Self {
             problem,
             progress,

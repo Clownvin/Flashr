@@ -66,7 +66,7 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
 
 type Faces = Option<Vec<String>>;
 type ProblemCount = Option<usize>;
-type CorrectIncorrect = (usize, usize);
+type CorrectIncorrect = Option<(usize, usize)>;
 type ModeResult = (CorrectIncorrect, Stats);
 
 #[derive(Clone, Copy)]
