@@ -349,6 +349,8 @@ impl WeightLineWidget {
                 data.push((avg, selected));
             }
 
+            assert!(iter.next().is_none(), "Weights remaining in iterator");
+
             (data, (min, max))
         } else {
             //NOTE: Allocating new array just so if-arms match
