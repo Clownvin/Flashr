@@ -182,10 +182,11 @@ mod test {
     #[test]
     fn ensure_unique_question_answers() {
         let decks = load_decks(vec!["./tests/deck1.json"]).expect("Unable to load test deck");
-        let mut args = ModeArguments::new(&decks, Stats::new(), None, None, false);
+        let args = ModeArguments::new(&decks, None, None, false);
         let rng = &mut rand::thread_rng();
+        let stats = &mut Stats::new("");
         let problems =
-            MatchProblemIterator::new(args.deck_cards, &mut args.stats, args.faces, args.line, rng);
+            MatchProblemIterator::new(args.deck_cards, stats, args.faces, args.line, rng);
 
         for problem in problems.take(1000) {
             let problem = problem.expect("Unable to get problem");
@@ -218,10 +219,11 @@ mod test {
     fn fails_if_not_enough_unique_answers() {
         let decks = load_decks(vec!["./tests/duplicate_cards"])
             .expect("Unable to load duplicate cards test deck");
-        let mut args = ModeArguments::new(&decks, Stats::new(), None, None, false);
+        let args = ModeArguments::new(&decks, None, None, false);
         let rng = &mut rand::thread_rng();
+        let stats = &mut Stats::new("");
         let mut problems =
-            MatchProblemIterator::new(args.deck_cards, &mut args.stats, args.faces, args.line, rng);
+            MatchProblemIterator::new(args.deck_cards, stats, args.faces, args.line, rng);
 
         assert!(problems
             .next()

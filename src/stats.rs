@@ -34,66 +34,78 @@ impl Display for StatsError {
 }
 
 #[derive(Serialize, Deserialize)]
+struct StatsJson {
+    card_stats: HashMap<CardId, CardStats>,
+}
+
+impl From<Stats> for StatsJson {
+    fn from(value: Stats) -> Self {
+        StatsJson {
+            card_stats: value.card_stats,
+        }
+    }
+}
+
 pub struct Stats {
+    path: PathBuf,
     card_stats: HashMap<CardId, CardStats>,
 }
 
 const DEFAULT_HOME_STATS_PATH: &str = ".config/flashr/stats.json";
 
 impl Stats {
-    pub fn new() -> Self {
+    pub fn new(path: impl Into<PathBuf>) -> Self {
         Self {
+            path: path.into(),
             card_stats: HashMap::new(),
         }
     }
 
-    pub fn load_from_file(path: impl Into<PathBuf>) -> Result<Self, StatsError> {
-        let path = path.into();
-
-        if let Ok(metadata) = std::fs::metadata(&path) {
+    pub fn load_from_file(path: impl Into<PathBuf> + Clone) -> Result<Self, StatsError> {
+        let buf = path.clone().into();
+        if let Ok(metadata) = std::fs::metadata(&buf) {
             if metadata.is_file() {
-                let json = std::fs::read_to_string(&path)
-                    .map_err(|err| StatsError::IoError(path.clone(), err))?;
-                let stats =
-                    serde_json::from_str(&json).map_err(|err| StatsError::SerdeError(path, err))?;
+                let json = std::fs::read_to_string(&buf)
+                    .map_err(|err| StatsError::IoError(path.clone().into(), err))?;
 
-                Ok(stats)
+                serde_json::from_str(&json)
+                    .map(|StatsJson { card_stats }| Self {
+                        path: buf,
+                        card_stats,
+                    })
+                    .map_err(|err| StatsError::SerdeError(path.into(), err))
             } else {
-                Err(StatsError::ConfigIsDir(path))
+                Err(StatsError::ConfigIsDir(buf))
             }
         } else {
-            Ok(Self::new())
+            Ok(Self::new(path))
         }
     }
 
     pub fn load_from_user_home() -> Result<Self, StatsError> {
-        let path = get_home_folder()?;
+        let path = get_home_config_file()?;
         Self::load_from_file(path)
     }
 
-    pub fn save_to_file(&self, path: impl Into<PathBuf>) -> Result<(), StatsError> {
-        let path: PathBuf = path.into();
-
-        if let Some(parent) = path.parent() {
+    pub fn save_to_file(self) -> Result<(), StatsError> {
+        if let Some(parent) = self.path.parent() {
             if !parent.exists() {
                 std::fs::create_dir_all(parent)
-                    .map_err(|err| StatsError::IoError(path.clone(), err))?;
+                    .map_err(|err| StatsError::IoError(self.path.clone(), err))?;
             }
         }
 
+        let path = self.path.clone();
+        let json: StatsJson = self.into();
+
         std::fs::write(
             &path,
-            serde_json::to_string(&self)
+            serde_json::to_string(&json)
                 .map_err(|err| StatsError::SerdeError(path.clone(), err))?,
         )
         .map_err(|err| StatsError::IoError(path.clone(), err))?;
 
         Ok(())
-    }
-
-    pub fn save_to_user_home(&self) -> Result<(), StatsError> {
-        let path = get_home_folder()?;
-        self.save_to_file(path)
     }
 
     pub fn for_card(&mut self, id: impl Into<CardId>) -> &CardStats {
@@ -123,11 +135,11 @@ impl Stats {
 
 impl Default for Stats {
     fn default() -> Self {
-        Self::new()
+        Self::new(get_home_config_file().expect("Unable to find stats in home config"))
     }
 }
 
-fn get_home_folder() -> Result<PathBuf, StatsError> {
+fn get_home_config_file() -> Result<PathBuf, StatsError> {
     let path = dirs::home_dir();
     if let Some(mut path) = path {
         path.push(DEFAULT_HOME_STATS_PATH);
@@ -187,10 +199,10 @@ mod tests {
         let deck_card = DeckCard::new(&deck, &card);
 
         {
-            let mut stats = Stats::default();
+            let mut stats = Stats::new(TEST_STATS_FILE_PATH);
             let card_stats = stats.for_card_mut(&deck_card);
             card_stats.correct += 1;
-            assert!(stats.save_to_file(TEST_STATS_FILE_PATH).is_ok());
+            assert!(stats.save_to_file().is_ok());
         }
 
         {
@@ -216,10 +228,10 @@ mod tests {
         let deck_card = DeckCard::new(&deck, &card);
 
         {
-            let mut stats = Stats::default();
+            let mut stats = Stats::new(TEST_STATS_FILE_PATH_NESTED);
             let card_stats = stats.for_card_mut(&deck_card);
             card_stats.correct += 1;
-            assert!(stats.save_to_file(TEST_STATS_FILE_PATH_NESTED).is_ok());
+            assert!(stats.save_to_file().is_ok());
         }
 
         {

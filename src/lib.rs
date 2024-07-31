@@ -1,5 +1,5 @@
 use clap::Parser;
-use stats::{Stats, StatsError};
+use stats::StatsError;
 use std::{
     fmt::Display,
     ops::{Deref, Not},
@@ -20,25 +20,22 @@ mod stats;
 mod terminal;
 mod weighted_list;
 
-pub fn run() -> Result<CorrectIncorrect, FlashrError> {
+pub fn run() -> Result<Option<CorrectIncorrect>, FlashrError> {
     let cli = cli::FlashrCli::parse();
     let decks = load_decks(cli.paths)?;
-    let stats = Stats::load_from_user_home()?;
-    let args = ModeArguments::new(&decks, stats, cli.problem_count, cli.faces, cli.line);
+    let args = ModeArguments::new(&decks, cli.problem_count, cli.faces, cli.line);
 
-    std::panic::catch_unwind(|| -> Result<CorrectIncorrect, FlashrError> {
+    std::panic::catch_unwind(|| -> Result<Option<CorrectIncorrect>, FlashrError> {
         //NOTE: From this point, stdout/stderr will not be usable, hence we
         //need to catch any panics, since they are not loggable. Mapping to
         //FlashrError allows us to gracefully exit and log the panic.
         let term = &mut TerminalWrapper::new().map_err(UiError::IoError)?;
 
-        let (correct_incorrect, stats) = match cli.mode {
-            Mode::Match => match_faces(term, args),
-            Mode::Flash => show_flashcards(term, args.deck_cards).map(|_| (None, args.stats)),
+        let correct_incorrect = match cli.mode {
+            Mode::Match => match_faces(term, args).map(Some),
+            Mode::Flash => show_flashcards(term, args.deck_cards).map(|_| None),
             Mode::Type => todo!("Type mode not yet implemented"),
         }?;
-
-        stats.save_to_user_home()?;
 
         Ok(correct_incorrect)
     })
@@ -66,8 +63,7 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
 
 type Faces = Option<Vec<String>>;
 type ProblemCount = Option<usize>;
-type CorrectIncorrect = Option<(usize, usize)>;
-type ModeResult = (CorrectIncorrect, Stats);
+type CorrectIncorrect = (usize, usize);
 
 #[derive(Clone, Copy)]
 struct DeckCard<'a> {
@@ -150,18 +146,11 @@ struct ModeArguments<'a> {
     problem_count: ProblemCount,
     faces: Faces,
     deck_cards: Vec<DeckCard<'a>>,
-    stats: Stats,
     line: bool,
 }
 
 impl<'a> ModeArguments<'a> {
-    fn new(
-        decks: &'a [Deck],
-        stats: Stats,
-        problem_count: ProblemCount,
-        faces: Faces,
-        line: bool,
-    ) -> Self {
+    fn new(decks: &'a [Deck], problem_count: ProblemCount, faces: Faces, line: bool) -> Self {
         let mut deck_cards = {
             let max_num_problems = decks.iter().fold(0, |total, deck| {
                 total + (deck.cards.len() * deck.faces.len())
@@ -200,7 +189,6 @@ impl<'a> ModeArguments<'a> {
             problem_count,
             faces,
             deck_cards,
-            stats,
             line,
         }
     }

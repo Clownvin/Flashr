@@ -6,8 +6,8 @@ use iter::MatchProblemIterator;
 use widget::{MatchProblemWidget, MatchProblemWidgetState};
 
 use crate::{
-    event::clear_and_match_event, stats::Stats, terminal::TerminalWrapper, FlashrError,
-    ModeArguments, ModeResult, PromptCard,
+    event::clear_and_match_event, stats::Stats, terminal::TerminalWrapper, CorrectIncorrect,
+    FlashrError, ModeArguments, PromptCard,
 };
 
 use super::flashcards::show_flashcards;
@@ -39,9 +39,9 @@ enum MatchResult<'a, 'b> {
 pub fn match_faces(
     term: &mut TerminalWrapper,
     args: ModeArguments,
-) -> Result<ModeResult, FlashrError> {
+) -> Result<CorrectIncorrect, FlashrError> {
     let rng = &mut rand::thread_rng();
-    let mut stats = args.stats;
+    let mut stats = Stats::load_from_user_home()?;
     let mut problems =
         MatchProblemIterator::new(args.deck_cards, &mut stats, args.faces, args.line, rng);
 
@@ -77,7 +77,7 @@ pub fn match_faces(
         }
     }
 
-    if let Some(count) = args.problem_count {
+    let (total_correct, total) = if let Some(count) = args.problem_count {
         for _ in 0..count {
             if let Some(problem) = problems.next() {
                 let progress = (total_correct, count);
@@ -92,7 +92,7 @@ pub fn match_faces(
             }
         }
 
-        Ok((Some((total_correct, count)), stats))
+        (total_correct, count)
     } else {
         let mut total = 0;
 
@@ -112,8 +112,11 @@ pub fn match_faces(
             }
         }
 
-        Ok((Some((total_correct, total)), stats))
-    }
+        (total_correct, total)
+    };
+
+    stats.save_to_file()?;
+    Ok((total_correct, total))
 }
 
 fn show_match_problem<'a, 'b>(
