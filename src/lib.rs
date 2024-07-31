@@ -25,17 +25,43 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
     let cli = cli::FlashrCli::parse();
     let decks = load_decks(cli.paths)?;
     let stats = Stats::load_from_user_home()?;
-    let term = TerminalWrapper::new().map_err(UiError::IoError)?;
     let args = ModeArguments::new(&decks, stats, cli.problem_count, cli.faces, cli.line);
 
-    let (correct_incorrect, stats) = match cli.mode {
-        Mode::Match => match_faces(term, args),
-        Mode::Type => todo!("Type mode not yet implemented"),
-    }?;
+    //NOTE: From this point, stdout/stderr will not be usable
+    let term = TerminalWrapper::new().map_err(UiError::IoError)?;
 
-    stats.save_to_user_home()?;
+    //NOTE(cont.): Hence we need to catch any panics, since they
+    //are not loggable. Mapping to FlashrError allows us to
+    //gracefully exit and log the panic.
+    std::panic::catch_unwind(|| -> Result<CorrectIncorrect, FlashrError> {
+        let (correct_incorrect, stats) = match cli.mode {
+            Mode::Match => match_faces(term, args),
+            Mode::Type => todo!("Type mode not yet implemented"),
+        }?;
 
-    Ok(correct_incorrect)
+        stats.save_to_user_home()?;
+
+        Ok(correct_incorrect)
+    })
+    .map_err(|err| {
+        FlashrError::Panic({
+            // Attempt to extract the panic message
+            let panic_info = err.downcast::<&str>();
+
+            let message = match panic_info {
+                Ok(msg) => msg.as_ref(),
+                Err(_) => "Unknown panic occurred",
+            };
+
+            // Get the location of the panic
+            let location = std::panic::Location::caller();
+            let file_name = location.file();
+            let line_number = location.line();
+
+            // Create the formatted string
+            format!("{}:{}: {}", file_name, line_number, message)
+        })
+    })?
 }
 
 type Faces = Option<Vec<String>>;
@@ -217,6 +243,7 @@ pub enum FlashrError {
     DeckMismatch(String),
     Arg(ArgError),
     Stats(StatsError),
+    Panic(String),
 }
 
 impl Display for FlashrError {
@@ -228,6 +255,7 @@ impl Display for FlashrError {
             Self::Ui(err) => f.write_fmt(format_args!("Ui: {err}")),
             Self::Arg(err) => f.write_fmt(format_args!("Arg: {err}")),
             Self::Stats(err) => f.write_fmt(format_args!("Stats: {err}")),
+            Self::Panic(err) => f.write_fmt(format_args!("Panicked: {err}")),
         }
     }
 }
