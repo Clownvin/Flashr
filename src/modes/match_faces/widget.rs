@@ -44,6 +44,9 @@ impl Default for MatchProblemWidgetState {
     }
 }
 
+const COLOR_CORRECT: Color = Color::Green;
+const COLOR_INCORRECT: Color = Color::Red;
+
 impl StatefulWidget for MatchProblemWidget<'_> {
     type State = MatchProblemWidgetState;
 
@@ -167,7 +170,11 @@ impl StatefulWidget for MatchProblemWidget<'_> {
             }
             Some((answered_index, correct)) => {
                 {
-                    let color = if correct { Color::Green } else { Color::Red };
+                    let color = if correct {
+                        COLOR_CORRECT
+                    } else {
+                        COLOR_INCORRECT
+                    };
                     question.fg(color).render(question_area, buf);
                 }
 
@@ -183,38 +190,26 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                         .render(answer_area, buf)
                 }
 
-                {
-                    let color = {
-                        if answered_index < 2 {
-                            if correct {
-                                Color::Green
-                            } else {
-                                Color::Red
-                            }
-                        } else if self.problem.answer_index < 2 {
-                            Color::Green
+                let color_for_divider = |index_test: fn(usize) -> bool| -> Color {
+                    if index_test(answered_index) {
+                        if correct {
+                            COLOR_CORRECT
                         } else {
-                            Color::default()
+                            COLOR_INCORRECT
                         }
-                    };
-                    divider_top.fg(color).render(divider_top_area, buf);
-                }
-                {
-                    let color = {
-                        if answered_index >= 2 {
-                            if correct {
-                                Color::Green
-                            } else {
-                                Color::Red
-                            }
-                        } else if self.problem.answer_index >= 2 {
-                            Color::Green
-                        } else {
-                            Color::default()
-                        }
-                    };
-                    divider_bot.fg(color).render(divider_bot_area, buf);
-                }
+                    } else if index_test(self.problem.answer_index) {
+                        COLOR_CORRECT
+                    } else {
+                        Color::default()
+                    }
+                };
+
+                divider_top
+                    .fg(color_for_divider(|index| index < 2))
+                    .render(divider_top_area, buf);
+                divider_bot
+                    .fg(color_for_divider(|index| index >= 2))
+                    .render(divider_bot_area, buf);
             }
         }
 
@@ -271,9 +266,9 @@ impl Widget for MatchAnswerWidget {
                 None | Some((false, false)) => Color::default(),
                 Some((is_correct, _)) => {
                     if is_correct {
-                        Color::Green
+                        COLOR_CORRECT
                     } else {
-                        Color::Red
+                        COLOR_INCORRECT
                     }
                 }
             })
