@@ -45,11 +45,12 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
     .map_err(|err| {
         FlashrError::Panic({
             // Attempt to extract the panic message
-            let panic_info = err.downcast::<&str>();
-
-            let message = match panic_info {
-                Ok(msg) => msg.as_ref(),
-                Err(_) => "Unknown panic occurred",
+            let message = if let Some(msg) = err.downcast_ref::<String>() {
+                msg.to_owned()
+            } else if let Some(msg) = err.downcast_ref::<&str>() {
+                (*msg).to_owned()
+            } else {
+                "Unknown panic occurred".to_owned()
             };
 
             // Get the location of the panic
