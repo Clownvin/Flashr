@@ -6,11 +6,11 @@ use iter::MatchProblemIterator;
 use widget::{MatchProblemWidget, MatchProblemWidgetState};
 
 use crate::{
-    event::{clear_and_match_event, UserInput},
-    stats::Stats,
-    terminal::TerminalWrapper,
-    FlashrError, ModeArguments, ModeResult, PromptCard,
+    event::clear_and_match_event, stats::Stats, terminal::TerminalWrapper, FlashrError,
+    ModeArguments, ModeResult, PromptCard,
 };
+
+use super::flashcards::show_flashcards;
 
 mod iter;
 mod widget;
@@ -37,10 +37,9 @@ enum MatchResult<'a, 'b> {
 }
 
 pub fn match_faces(
-    mut term: TerminalWrapper,
+    term: &mut TerminalWrapper,
     args: ModeArguments,
 ) -> Result<ModeResult, FlashrError> {
-    let term = &mut term;
     let rng = &mut rand::thread_rng();
     let mut stats = args.stats;
     let mut problems =
@@ -132,7 +131,7 @@ fn show_match_problem<'a, 'b>(
             UserInput::Answer(index_answered) => {
                 return show_match_problem_result(term, problem, progress, index_answered)
             }
-            UserInput::Resize => continue,
+            UserInput::Resize | UserInput::EnterFlashcard(_) => continue,
             UserInput::Quit => return Ok(Err(Quit)),
         }
     }
@@ -170,10 +169,42 @@ fn show_match_problem_result<'a, 'b>(
                     })
                 })
             }
+            UserInput::EnterFlashcard(specific) => match specific {
+                None => {
+                    show_flashcards(
+                        term,
+                        problem
+                            .answers
+                            .iter()
+                            .map(|(card, _)| card.deck_card)
+                            .collect(),
+                    )?;
+                }
+                Some(specific_index) => {
+                    show_flashcards(
+                        term,
+                        problem
+                            .answers
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(i, (card, _))| {
+                                (specific_index == i).then_some(card.deck_card)
+                            })
+                            .collect(),
+                    )?;
+                }
+            },
             UserInput::Answer(_) | UserInput::Resize => continue,
             UserInput::Quit => return Ok(Err(Quit)),
         }
     }
+}
+
+enum UserInput {
+    Answer(usize),
+    EnterFlashcard(Option<usize>),
+    Resize,
+    Quit,
 }
 
 fn match_user_input(event: Event, state: &MatchProblemWidgetState) -> Option<UserInput> {
@@ -187,6 +218,11 @@ fn match_user_input(event: Event, state: &MatchProblemWidgetState) -> Option<Use
             KeyCode::Char('2') => Some(UserInput::Answer(1)),
             KeyCode::Char('3') => Some(UserInput::Answer(2)),
             KeyCode::Char('4') => Some(UserInput::Answer(3)),
+            KeyCode::Enter => Some(UserInput::EnterFlashcard(None)),
+            KeyCode::Char('!') => Some(UserInput::EnterFlashcard(Some(0))),
+            KeyCode::Char('@') => Some(UserInput::EnterFlashcard(Some(1))),
+            KeyCode::Char('#') => Some(UserInput::EnterFlashcard(Some(2))),
+            KeyCode::Char('$') => Some(UserInput::EnterFlashcard(Some(3))),
             KeyCode::Esc | KeyCode::Char('q') => Some(UserInput::Quit),
             _ => None,
         },

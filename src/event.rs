@@ -4,12 +4,6 @@ use crossterm::event::{self, Event};
 
 use crate::{FlashrError, UiError};
 
-pub enum UserInput {
-    Answer(usize),
-    Resize,
-    Quit,
-}
-
 pub fn clear_and_match_event<T>(match_fn: impl Fn(Event) -> Option<T>) -> Result<T, FlashrError> {
     clear_event_loop()?;
     match_user_input(match_fn)

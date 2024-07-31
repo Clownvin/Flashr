@@ -32,7 +32,7 @@ impl TerminalWrapper {
         Ok(())
     }
 
-    pub fn _render_widget(&mut self, widget: impl Widget) -> Result<(), FlashrError> {
+    pub fn render_widget(&mut self, widget: impl Widget) -> Result<(), FlashrError> {
         self.draw(|frame| frame.render_widget(widget, frame.size()))
     }
 

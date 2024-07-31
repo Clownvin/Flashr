@@ -29,5 +29,6 @@ Example Usage: flashr -f Front -f Back ./decks"#;
 const LINE_HELP: &str = r#"Toggle the weight line. This will render a bar chart at the top which represents the weights of the backing weighted list."#;
 const MODE_HELP: &str = r#"Program mode. Possible values:
     match   - Multiple choice matching problems
+    flash   - Typical flashcards
     type    - Shown a face, and asked to type the answer"#;
 const PATHS_HELP: &str = r#"Paths to load decks from. Can be individual files or directories."#;

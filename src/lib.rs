@@ -6,8 +6,8 @@ use std::{
     str::FromStr,
 };
 
-use deck::{load_decks, Card, CardId, Deck, DeckError};
-use modes::match_faces::match_faces;
+use deck::{load_decks, Card, CardId, Deck, DeckError, Face};
+use modes::{flashcards::show_flashcards, match_faces::match_faces};
 use terminal::TerminalWrapper;
 
 mod cli;
@@ -26,15 +26,15 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
     let stats = Stats::load_from_user_home()?;
     let args = ModeArguments::new(&decks, stats, cli.problem_count, cli.faces, cli.line);
 
-    //NOTE: From this point, stdout/stderr will not be usable
-    let term = TerminalWrapper::new().map_err(UiError::IoError)?;
-
-    //NOTE(cont.): Hence we need to catch any panics, since they
-    //are not loggable. Mapping to FlashrError allows us to
-    //gracefully exit and log the panic.
     std::panic::catch_unwind(|| -> Result<CorrectIncorrect, FlashrError> {
+        //NOTE: From this point, stdout/stderr will not be usable, hence we
+        //need to catch any panics, since they are not loggable. Mapping to
+        //FlashrError allows us to gracefully exit and log the panic.
+        let term = &mut TerminalWrapper::new().map_err(UiError::IoError)?;
+
         let (correct_incorrect, stats) = match cli.mode {
             Mode::Match => match_faces(term, args),
+            Mode::Flash => show_flashcards(term, args.deck_cards).map(|_| (None, args.stats)),
             Mode::Type => todo!("Type mode not yet implemented"),
         }?;
 
@@ -46,7 +46,7 @@ pub fn run() -> Result<CorrectIncorrect, FlashrError> {
         FlashrError::Panic({
             // Attempt to extract the panic message
             let message = if let Some(msg) = err.downcast_ref::<String>() {
-                msg.to_owned()
+                msg.clone()
             } else if let Some(msg) = err.downcast_ref::<&str>() {
                 (*msg).to_owned()
             } else {
@@ -80,11 +80,11 @@ impl<'a> DeckCard<'a> {
         Self { deck, card }
     }
 
-    fn possible_faces(&self) -> Vec<(usize, &String)> {
+    fn possible_faces(&self) -> Vec<(usize, &String, &Face)> {
         let mut possible_faces = Vec::with_capacity(self.deck.faces.len());
-        for face in self.deck.faces.iter().enumerate() {
-            if self.card[face.0].is_some() {
-                possible_faces.push(face);
+        for (index, face_str) in self.deck.faces.iter().enumerate() {
+            if let Some(face) = self.card[index].as_ref() {
+                possible_faces.push((index, face_str, face));
             }
         }
         possible_faces
@@ -115,6 +115,7 @@ impl<'a> From<&PromptCard<'a>> for CardId {
 enum Mode {
     Match,
     Type,
+    Flash,
 }
 
 impl FromStr for Mode {
@@ -123,6 +124,8 @@ impl FromStr for Mode {
 
         if s == "match" {
             Ok(Self::Match)
+        } else if s == "flash" {
+            Ok(Self::Flash)
         } else if s == "type" {
             Ok(Self::Type)
         } else {
@@ -138,6 +141,7 @@ impl Display for Mode {
         f.write_str(match self {
             Mode::Match => "match",
             Mode::Type => "type",
+            Mode::Flash => "flash",
         })
     }
 }

@@ -52,36 +52,31 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
 
         let possible_faces = problem_deck_card.possible_faces();
 
-        let ((question_index, question_face), (answer_index, answer_face)) =
-            match self.faces.as_ref() {
-                Some(faces) => {
-                    let question = possible_faces
-                        .clone()
-                        .into_iter_shuffled(self.rng)
-                        .find(|(_, face)| faces.iter().any(|specified| face == &specified))
-                        .expect("Unable to find a valid question face");
-
-                    let (question_index, _) = question;
-
-                    let answer = possible_faces
-                        .into_iter_shuffled(self.rng)
-                        .find(|(i, _)| *i != question_index)
-                        .expect("Unable to find a valid answer face");
-
-                    (question, answer)
-                }
-                None => possible_faces
+        let (
+            (_question_index, question_face, problem_question_face),
+            (_answer_index, answer_face, problem_answer_face),
+        ) = match self.faces.as_ref() {
+            Some(faces) => {
+                let question = possible_faces
+                    .clone()
                     .into_iter_shuffled(self.rng)
-                    .collect::<OptionTuple<_>>()
-                    .expect("Unable to find valid question and answer faces"),
-            };
+                    .find(|(_, face, _)| faces.iter().any(|specified| face == &specified))
+                    .expect("Unable to find a valid question face");
 
-        let problem_question_face = problem_deck_card[question_index]
-            .as_ref()
-            .expect("Unable to find question face on card");
-        let problem_answer_face = problem_deck_card[answer_index]
-            .as_ref()
-            .expect("Unable to find answer face on card");
+                let (question_index, _, _) = question;
+
+                let answer = possible_faces
+                    .into_iter_shuffled(self.rng)
+                    .find(|(i, _, _)| *i != question_index)
+                    .expect("Unable to find a valid answer face");
+
+                (question, answer)
+            }
+            None => possible_faces
+                .into_iter_shuffled(self.rng)
+                .collect::<OptionTuple<_>>()
+                .expect("Unable to find valid question and answer faces"),
+        };
 
         let mut seen_faces = Vec::with_capacity(ANSWERS_PER_PROBLEM);
         seen_faces.push(problem_answer_face);
