@@ -293,19 +293,13 @@ impl WeightLineWidget {
             let mut data = Vec::with_capacity(width);
 
             let ((big_window_size, small_window_size), (num_big, num_small)) = {
-                let big_window_size = (num_weights as f64 / width as f64).ceil() as usize;
+                let weights_per_width = num_weights as f64 / width as f64;
 
-                debug_assert!(
-                    big_window_size >= 2,
-                    "Big window size must always be at least 2"
-                );
-
+                let big_window_size = weights_per_width.ceil() as usize;
                 let small_window_size = big_window_size - 1;
 
-                let max_num_small =
-                    (num_weights as f64 / small_window_size as f64).floor() as usize;
-
-                let num_big = max_num_small - width;
+                let floor = weights_per_width.floor();
+                let num_big = ((weights_per_width - floor) * width as f64).round() as usize;
                 let num_small = width - num_big;
 
                 ((big_window_size, small_window_size), (num_big, num_small))
@@ -349,7 +343,8 @@ impl WeightLineWidget {
                 data.push((avg, selected));
             }
 
-            assert!(iter.next().is_none(), "Weights remaining in iterator");
+            let count = iter.count();
+            assert!(count == 0, "Weights remaining after folding: {count}",);
 
             (data, (min, max))
         } else {
