@@ -25,10 +25,9 @@ pub fn run() -> Result<Option<CorrectIncorrect>, FlashrError> {
     let decks = load_decks(cli.paths)?;
     let args = ModeArguments::new(&decks, cli.problem_count, cli.faces, cli.line);
 
-    std::panic::catch_unwind(|| -> Result<Option<CorrectIncorrect>, FlashrError> {
+    std::panic::catch_unwind(|| {
         //NOTE: From this point, stdout/stderr will not be usable, hence we
-        //need to catch any panics, since they are not loggable. Mapping to
-        //FlashrError allows us to gracefully exit and log the panic.
+        //need to catch any panics, since they are not loggable.
         let term = &mut TerminalWrapper::new().map_err(UiError::IoError)?;
 
         let correct_incorrect = match cli.mode {
@@ -39,9 +38,10 @@ pub fn run() -> Result<Option<CorrectIncorrect>, FlashrError> {
 
         Ok(correct_incorrect)
     })
+    //NOTE(cont.): Mapping to FlashrError allows us to gracefully exit and
+    //log the panic.
     .map_err(|err| {
         FlashrError::Panic({
-            // Attempt to extract the panic message
             let message = if let Some(msg) = err.downcast_ref::<String>() {
                 msg.clone()
             } else if let Some(msg) = err.downcast_ref::<&str>() {
@@ -50,13 +50,11 @@ pub fn run() -> Result<Option<CorrectIncorrect>, FlashrError> {
                 "Unknown panic occurred".to_owned()
             };
 
-            // Get the location of the panic
             let location = std::panic::Location::caller();
             let file_name = location.file();
             let line_number = location.line();
 
-            // Create the formatted string
-            format!("{}:{}: {}", file_name, line_number, message)
+            format!("{file_name}:{line_number}: {message}")
         })
     })?
 }
