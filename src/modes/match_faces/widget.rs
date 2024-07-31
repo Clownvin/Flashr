@@ -216,7 +216,9 @@ impl StatefulWidget for MatchProblemWidget<'_> {
         {
             let (completed, total) = self.progress;
             let (ratio, percent) = if total == 0 {
-                (0.0, 0.0)
+                //NOTE: Starting at ratio 1.0 so that
+                //colors are "correct"
+                (1.0, 0.0)
             } else {
                 let ratio = completed as f64 / total as f64;
                 (ratio, ratio * 100.0)
@@ -225,6 +227,7 @@ impl StatefulWidget for MatchProblemWidget<'_> {
             Gauge::default()
                 .ratio(ratio)
                 .label(format!("{percent:05.2}% ({completed}/{total})"))
+                .gauge_style(Style::default().fg(COLOR_CORRECT).bg(COLOR_INCORRECT))
                 .use_unicode(true)
                 .render(progress_area, buf);
         }
