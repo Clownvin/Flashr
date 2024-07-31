@@ -90,8 +90,8 @@ impl Card {
         self.iter()
             .flatten()
             .map(Face::to_string)
-            .intersperse(sep.to_owned())
-            .collect::<String>()
+            .collect::<Vec<_>>()
+            .join(sep)
     }
 
     pub fn front(&self) -> Option<&Face> {

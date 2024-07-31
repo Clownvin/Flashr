@@ -1,4 +1,3 @@
-#![feature(iter_intersperse)]
 use clap::Parser;
 use stats::{Stats, StatsError};
 use std::{
