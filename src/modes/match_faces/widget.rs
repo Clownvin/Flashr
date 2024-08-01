@@ -293,10 +293,10 @@ impl WeightLineWidget {
             let ((big_window_size, small_window_size), (num_big, num_small)) = {
                 let weights_per_width = num_weights as f64 / width as f64;
 
-                let big_window_size = weights_per_width.ceil() as usize;
-                let small_window_size = big_window_size - 1;
-
                 let floor = weights_per_width.floor();
+                let small_window_size = floor as usize;
+                let big_window_size = small_window_size + 1;
+
                 let num_big = ((weights_per_width - floor) * width as f64).round() as usize;
                 let num_small = width - num_big;
 
@@ -317,7 +317,7 @@ impl WeightLineWidget {
                     let total = total + w;
                     let selected = selected
                         .filter(|s| *s)
-                        .or_else(|| answered.map(|(i_q, i_a)| *i_q == i || *i_a == i));
+                        .or_else(|| answered.map(|(i_q, i_a)| i.eq(i_q) || i.eq(i_a)));
 
                     (total / size as f64, selected)
                 })
@@ -346,19 +346,50 @@ impl WeightLineWidget {
 
             (data, (min, max))
         } else {
-            //NOTE: Allocating new array just so if-arms match
-            let mut data = Vec::with_capacity(num_weights);
+            let mut data = Vec::with_capacity(width);
+
+            let ((big_window_size, small_window_size), (num_big, num_small)) = {
+                let lines_per_weight = width as f64 / num_weights as f64;
+
+                let floor = lines_per_weight.floor();
+                let small_window_size = floor as usize;
+                let big_window_size = small_window_size + 1;
+
+                let num_big = ((lines_per_weight - floor) * num_weights as f64).round() as usize;
+                let num_small = num_weights - num_big;
+
+                ((big_window_size, small_window_size), (num_big, num_small))
+            };
+
+            let mut iter = weights.iter().enumerate();
             let (mut min, mut max) = (f64::MAX, f64::MIN);
 
-            for (i, w) in weights.iter().enumerate() {
-                let weight = *w;
-                min = min.min(weight);
-                max = max.max(weight);
-                data.push((
-                    weight,
-                    answered.as_ref().map(|(i_q, i_a)| *i_q == i || *i_a == i),
-                ));
+            for _ in 0..num_small {
+                let (i, w) = iter.next().expect("Unable to get next weight");
+                let selected = answered.map(|(i_q, i_a)| i_q == i || i_a == i);
+
+                min = w.min(min);
+                max = w.max(max);
+
+                for _ in 0..small_window_size {
+                    data.push((*w, selected));
+                }
             }
+
+            for _ in 0..num_big {
+                let (i, w) = iter.next().expect("Unable to get next weight");
+                let selected = answered.map(|(i_q, i_a)| i_q == i || i_a == i);
+
+                min = w.min(min);
+                max = w.max(max);
+
+                for _ in 0..big_window_size {
+                    data.push((*w, selected));
+                }
+            }
+
+            let count = iter.count();
+            assert!(count == 0, "Weights remaining after folding: {count}",);
 
             (data, (min, max))
         };

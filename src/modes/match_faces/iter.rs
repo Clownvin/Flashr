@@ -208,8 +208,8 @@ mod test {
                         .filter(|(j, _)| i != j)
                         .all(|(_, (other_answer, _))| other_answer.prompt != answer.prompt)
 
-                    //And also ensure that no answer's "question face" is the same as the problem's
-                    //NOTE: This check requires that deck1.json has two cards with same last face
+                    //And also ensure that no answer's "question face" is the same as
+                    //the problem's
                     && (*correct || answer.deck_card.last() != problem.question.deck_card.last())
                 }));
         }
