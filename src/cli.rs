@@ -32,3 +32,15 @@ const MODE_HELP: &str = r#"Program mode. Possible values:
     flash   - Typical flashcards
     type    - Shown a face, and asked to type the answer"#;
 const PATHS_HELP: &str = r#"Paths to load decks from. Can be individual files or directories."#;
+
+#[cfg(test)]
+mod tests {
+    use clap::CommandFactory;
+
+    use crate::cli;
+
+    #[test]
+    fn verify_cli() {
+        cli::FlashrCli::command().debug_assert();
+    }
+}

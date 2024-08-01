@@ -337,15 +337,3 @@ impl Display for ArgError {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use clap::CommandFactory;
-
-    use crate::cli;
-
-    #[test]
-    fn verify_cli() {
-        cli::FlashrCli::command().debug_assert();
-    }
-}
