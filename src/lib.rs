@@ -40,10 +40,10 @@ pub fn run() -> Result<Option<Progress>, FlashrError> {
     })
     .map_err(|err| {
         FlashrError::Panic({
-            if let Some(msg) = err.downcast_ref::<String>() {
-                msg.clone()
-            } else if let Some(msg) = err.downcast_ref::<&str>() {
+            if let Some(msg) = err.downcast_ref::<&str>() {
                 (*msg).to_owned()
+            } else if let Some(msg) = err.downcast_ref::<String>() {
+                msg.clone()
             } else {
                 "Unknown panic occurred".to_owned()
             }
@@ -67,9 +67,9 @@ impl<'a> DeckCard<'a> {
 
     fn possible_faces(&self) -> Vec<(usize, &String, &Face)> {
         let mut possible_faces = Vec::with_capacity(self.deck.faces.len());
-        for (index, face_str) in self.deck.faces.iter().enumerate() {
-            if let Some(face) = self.card[index].as_ref() {
-                possible_faces.push((index, face_str, face));
+        for (index, deck_face) in self.deck.faces.iter().enumerate() {
+            if let Some(card_face) = self.card[index].as_ref() {
+                possible_faces.push((index, deck_face, card_face));
             }
         }
         possible_faces
@@ -269,10 +269,10 @@ pub enum FlashrError {
 impl Display for FlashrError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::DeckMismatch(reason) => f.write_fmt(format_args!("DeckMismatch: {reason}")),
             Self::Deck(err) => f.write_fmt(format_args!("Deck: {err}")),
-            Self::Ui(err) => f.write_fmt(format_args!("Ui: {err}")),
+            Self::DeckMismatch(err) => f.write_fmt(format_args!("DeckMismatch: {err}")),
             Self::Arg(err) => f.write_fmt(format_args!("Arg: {err}")),
+            Self::Ui(err) => f.write_fmt(format_args!("Ui: {err}")),
             Self::Stats(err) => f.write_fmt(format_args!("Stats: {err}")),
             Self::Panic(err) => f.write_fmt(format_args!("Panicked: {err}")),
         }
