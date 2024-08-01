@@ -38,23 +38,15 @@ pub fn run() -> Result<Option<CorrectIncorrect>, FlashrError> {
 
         Ok(correct_incorrect)
     })
-    //NOTE(cont.): Mapping to FlashrError allows us to gracefully exit and
-    //log the panic.
     .map_err(|err| {
         FlashrError::Panic({
-            let message = if let Some(msg) = err.downcast_ref::<String>() {
+            if let Some(msg) = err.downcast_ref::<String>() {
                 msg.clone()
             } else if let Some(msg) = err.downcast_ref::<&str>() {
                 (*msg).to_owned()
             } else {
                 "Unknown panic occurred".to_owned()
-            };
-
-            let location = std::panic::Location::caller();
-            let file_name = location.file();
-            let line_number = location.line();
-
-            format!("{file_name}:{line_number}: {message}")
+            }
         })
     })?
 }
