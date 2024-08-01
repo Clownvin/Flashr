@@ -58,81 +58,76 @@ impl StatefulWidget for MatchProblemWidget<'_> {
     ) where
         Self: Sized,
     {
-        let (question_area, answer_areas, progress_area, (divider_top_area, divider_bot_area)) = {
-            let (question_area, answer_area, progress_area) = {
-                if let Some(weights) = self.problem.weights.as_ref() {
-                    let layout = Layout::new(
-                        Direction::Vertical,
-                        [
-                            Constraint::Ratio(1, 12),
-                            Constraint::Ratio(3, 12),
-                            Constraint::Ratio(8, 12),
-                            Constraint::Min(1),
-                        ],
-                    );
-                    let split = layout.split(area);
-                    let line_area = split[0];
+        let (question_area, answer_areas, progress_area, divider_areas, weights_area) = {
+            let (question_area, answer_area, progress_area, weights_area) =
+                match self.problem.weights.as_ref() {
+                    Some(weights) => {
+                        let layout = Layout::new(
+                            Direction::Vertical,
+                            [
+                                Constraint::Ratio(1, 12),
+                                Constraint::Ratio(3, 12),
+                                Constraint::Ratio(8, 12),
+                                Constraint::Min(1),
+                            ],
+                        );
+                        let split = layout.split(area);
 
-                    //NOTE: Rendering weightline here to save passing around line_area/checking
-                    //Options
-                    WeightLineWidget::new(
-                        weights,
-                        self.answer.map(|(answered, _)| {
-                            (
-                                self.problem.question.index,
-                                self.problem.answers[answered].0.index,
-                            )
-                        }),
-                        line_area.width as usize,
-                    )
-                    .render(line_area, buf);
+                        (split[1], split[2], split[3], Some((weights, split[0])))
+                    }
+                    None => {
+                        let layout = Layout::new(
+                            Direction::Vertical,
+                            [
+                                Constraint::Ratio(1, 3),
+                                Constraint::Ratio(2, 3),
+                                Constraint::Min(1),
+                            ],
+                        );
 
-                    (split[1], split[2], split[3])
-                } else {
-                    let layout = Layout::new(
-                        Direction::Vertical,
-                        [
-                            Constraint::Ratio(1, 3),
-                            Constraint::Ratio(2, 3),
-                            Constraint::Min(1),
-                        ],
-                    );
+                        let split = layout.split(area);
 
-                    let split = layout.split(area);
+                        (split[0], split[1], split[2], None)
+                    }
+                };
 
+            let (answer_areas, divider_areas) = {
+                let (answer_top, answer_bot) = {
+                    let layout = Layout::new(Direction::Vertical, [Constraint::Ratio(1, 2); 2]);
+                    let split = layout.split(answer_area);
+                    (split[0], split[1])
+                };
+
+                let layout = Layout::new(
+                    Direction::Horizontal,
+                    [
+                        Constraint::Ratio(1, 2),
+                        Constraint::Min(1),
+                        Constraint::Ratio(1, 2),
+                    ],
+                );
+
+                let (top_left, divider_top, top_right) = {
+                    let split = layout.split(answer_top);
                     (split[0], split[1], split[2])
-                }
-            };
+                };
+                let (bot_left, divider_bot, bot_right) = {
+                    let split = layout.split(answer_bot);
+                    (split[0], split[1], split[2])
+                };
 
-            let (answer_top, answer_bot) = {
-                let layout = Layout::new(Direction::Vertical, [Constraint::Ratio(1, 2); 2]);
-                let split = layout.split(answer_area);
-                (split[0], split[1])
-            };
-
-            let layout = Layout::new(
-                Direction::Horizontal,
-                [
-                    Constraint::Ratio(1, 2),
-                    Constraint::Min(1),
-                    Constraint::Ratio(1, 2),
-                ],
-            );
-
-            let (top_left, divider_top, top_right) = {
-                let split = layout.split(answer_top);
-                (split[0], split[1], split[2])
-            };
-            let (bot_left, divider_bot, bot_right) = {
-                let split = layout.split(answer_bot);
-                (split[0], split[1], split[2])
+                (
+                    [top_left, top_right, bot_left, bot_right],
+                    (divider_top, divider_bot),
+                )
             };
 
             (
                 question_area,
-                [top_left, top_right, bot_left, bot_right],
+                answer_areas,
                 progress_area,
-                (divider_top, divider_bot),
+                divider_areas,
+                weights_area,
             )
         };
 
@@ -153,6 +148,20 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                 ..border::DOUBLE
             });
 
+        if let Some((weights, line_area)) = weights_area {
+            WeightLineWidget::new(
+                weights,
+                self.answer.map(|(answered, _)| {
+                    (
+                        self.problem.question.index,
+                        self.problem.answers[answered].0.index,
+                    )
+                }),
+                line_area.width as usize,
+            )
+            .render(line_area, buf);
+        }
+
         match self.answer {
             None => {
                 question.render(question_area, buf);
@@ -165,8 +174,8 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                         .render(answer_area, buf)
                 }
 
-                divider_top.render(divider_top_area, buf);
-                divider_bot.render(divider_bot_area, buf);
+                divider_top.render(divider_areas.0, buf);
+                divider_bot.render(divider_areas.1, buf);
             }
             Some((answered_index, correct)) => {
                 {
@@ -206,10 +215,10 @@ impl StatefulWidget for MatchProblemWidget<'_> {
 
                 divider_top
                     .fg(color_for_divider(|index| index < 2))
-                    .render(divider_top_area, buf);
+                    .render(divider_areas.0, buf);
                 divider_bot
                     .fg(color_for_divider(|index| index >= 2))
-                    .render(divider_bot_area, buf);
+                    .render(divider_areas.1, buf);
             }
         }
 
@@ -271,121 +280,20 @@ impl Widget for MatchAnswerWidget {
     }
 }
 
+type MinMax = (f64, f64);
+type WeightsWithSelected = Vec<(f64, Option<bool>)>;
+type ResizedWeights = (WeightsWithSelected, MinMax);
+
 struct WeightLineWidget {
-    weights: Vec<(f64, Option<bool>)>,
+    weights: WeightsWithSelected,
 }
 
 impl WeightLineWidget {
     fn new(weights: &[f64], answered: Option<(usize, usize)>, width: usize) -> Self {
-        let num_weights = weights.len();
-
-        let (weights, (min, max)) = if num_weights > width {
-            let mut data = Vec::with_capacity(width);
-
-            let ((big_window_size, small_window_size), (num_big, num_small)) = {
-                let weights_per_width = num_weights as f64 / width as f64;
-
-                let floor = weights_per_width.floor();
-                let small_window_size = floor as usize;
-                let big_window_size = small_window_size + 1;
-
-                let num_big = ((weights_per_width - floor) * width as f64).round() as usize;
-                let num_small = width - num_big;
-
-                ((big_window_size, small_window_size), (num_big, num_small))
-            };
-
-            let mut iter = weights.iter().enumerate();
-            let (mut min, mut max) = (f64::MAX, f64::MIN);
-
-            fn fold_next_window<'a, 'b>(
-                size: usize,
-                iter: &'b mut impl Iterator<Item = (usize, &'a f64)>,
-                answered: Option<&(usize, usize)>,
-            ) -> (f64, Option<bool>) {
-                let (total, selected) = (0..size).fold((0.0, None), |(total, selected), _| {
-                    let (i, w) = iter.next().expect("Unable to get next weight");
-
-                    let total = total + w;
-                    let selected = selected
-                        .filter(|s| *s)
-                        .or_else(|| answered.map(|(i_q, i_a)| i.eq(i_q) || i.eq(i_a)));
-
-                    (total, selected)
-                });
-
-                (total / size as f64, selected)
-            }
-
-            for _ in 0..num_small {
-                let (avg, selected) =
-                    fold_next_window(small_window_size, &mut iter, answered.as_ref());
-
-                min = min.min(avg);
-                max = max.max(avg);
-                data.push((avg, selected));
-            }
-
-            for _ in 0..num_big {
-                let (avg, selected) =
-                    fold_next_window(big_window_size, &mut iter, answered.as_ref());
-
-                min = min.min(avg);
-                max = max.max(avg);
-                data.push((avg, selected));
-            }
-
-            let count = iter.count();
-            assert!(count == 0, "Weights remaining after folding: {count}",);
-
-            (data, (min, max))
+        let (weights, (min, max)) = if weights.len() > width {
+            fold_weights(weights, width, answered)
         } else {
-            let mut data = Vec::with_capacity(width);
-
-            let ((big_window_size, small_window_size), (num_big, num_small)) = {
-                let lines_per_weight = width as f64 / num_weights as f64;
-
-                let floor = lines_per_weight.floor();
-                let small_window_size = floor as usize;
-                let big_window_size = small_window_size + 1;
-
-                let num_big = ((lines_per_weight - floor) * num_weights as f64).round() as usize;
-                let num_small = num_weights - num_big;
-
-                ((big_window_size, small_window_size), (num_big, num_small))
-            };
-
-            let mut iter = weights.iter().enumerate();
-            let (mut min, mut max) = (f64::MAX, f64::MIN);
-
-            for _ in 0..num_small {
-                let (i, w) = iter.next().expect("Unable to get next weight");
-                let selected = answered.map(|(i_q, i_a)| i_q == i || i_a == i);
-
-                min = w.min(min);
-                max = w.max(max);
-
-                for _ in 0..small_window_size {
-                    data.push((*w, selected));
-                }
-            }
-
-            for _ in 0..num_big {
-                let (i, w) = iter.next().expect("Unable to get next weight");
-                let selected = answered.map(|(i_q, i_a)| i_q == i || i_a == i);
-
-                min = w.min(min);
-                max = w.max(max);
-
-                for _ in 0..big_window_size {
-                    data.push((*w, selected));
-                }
-            }
-
-            let count = iter.count();
-            assert!(count == 0, "Weights remaining after folding: {count}",);
-
-            (data, (min, max))
+            expand_weights(weights, width, answered)
         };
 
         Self {
@@ -415,17 +323,16 @@ impl Widget for WeightLineWidget {
             let color = {
                 let color = LinearGradient::rainbow().sample(w);
 
-                selected
-                    .map(|selected| {
-                        color
-                            .percent(if selected {
-                                PERCENT_SELECTED
-                            } else {
-                                PERCENT_HIDDEN
-                            })
-                            .into()
-                    })
-                    .unwrap_or_else(|| color.into())
+                match selected {
+                    Some(selected) => color
+                        .percent(if selected {
+                            PERCENT_SELECTED
+                        } else {
+                            PERCENT_HIDDEN
+                        })
+                        .into(),
+                    None => color.into(),
+                }
             };
 
             let style = Style::default().fg(color);
@@ -439,4 +346,106 @@ impl Widget for WeightLineWidget {
 
         chart.bar_gap(0).reversed().render(area, buf)
     }
+}
+
+fn calc_window_size(ideal_window_size: f64, width: usize) -> ((usize, usize), (usize, usize)) {
+    let floor = ideal_window_size.floor();
+    let small_window_size = floor as usize;
+    let big_window_size = small_window_size + 1;
+
+    let num_big = ((ideal_window_size - floor) * width as f64).round() as usize;
+    let num_small = width - num_big;
+
+    ((big_window_size, small_window_size), (num_big, num_small))
+}
+
+fn fold_weights(weights: &[f64], width: usize, answered: Option<(usize, usize)>) -> ResizedWeights {
+    let num_weights = weights.len();
+
+    let ((big_window_size, small_window_size), (num_big, num_small)) = {
+        let weights_per_width = num_weights as f64 / width as f64;
+        calc_window_size(weights_per_width, width)
+    };
+
+    let mut iter = weights.iter().enumerate();
+    let (mut min, mut max) = (f64::MAX, f64::MIN);
+
+    let mut fold_next_window = |size| {
+        let (total, selected) = (0..size).fold((0.0, None), |(total, selected), _| {
+            let (i, w) = iter.next().expect("Unable to get next weight");
+
+            let total = total + w;
+            let selected = selected
+                .filter(|s| *s)
+                .or_else(|| answered.as_ref().map(|(i_q, i_a)| i.eq(i_q) || i.eq(i_a)));
+
+            (total, selected)
+        });
+
+        (total / size as f64, selected)
+    };
+
+    let mut data = Vec::with_capacity(width);
+
+    let mut fold_windows = |count, size| {
+        for _ in 0..count {
+            let (avg, selected) = fold_next_window(size);
+
+            min = min.min(avg);
+            max = max.max(avg);
+            data.push((avg, selected));
+        }
+    };
+
+    fold_windows(num_small, small_window_size);
+    fold_windows(num_big, big_window_size);
+
+    let count = iter.count();
+    assert!(count == 0, "Weights remaining after folding: {count}",);
+
+    (data, (min, max))
+}
+
+fn expand_weights(
+    weights: &[f64],
+    width: usize,
+    answered: Option<(usize, usize)>,
+) -> ResizedWeights {
+    let num_weights = weights.len();
+
+    let ((big_window_size, small_window_size), (num_big, num_small)) = {
+        let lines_per_weight = width as f64 / num_weights as f64;
+        calc_window_size(lines_per_weight, num_weights)
+    };
+
+    let mut iter = weights.iter().enumerate();
+    let (mut min, mut max) = (f64::MAX, f64::MIN);
+
+    let mut data = Vec::with_capacity(width);
+
+    let mut expand_next_window = |size| {
+        let (i, w) = iter.next().expect("Unable to get next weight");
+        let selected = answered.map(|(i_q, i_a)| i_q == i || i_a == i);
+
+        min = w.min(min);
+        max = w.max(max);
+
+        for _ in 0..size {
+            data.push((*w, selected));
+        }
+    };
+
+    let mut expand_windows = |count, size| {
+        for _ in 0..count {
+            expand_next_window(size);
+        }
+    };
+
+    expand_windows(num_small, small_window_size);
+    expand_windows(num_big, big_window_size);
+
+    let count = iter.count();
+    assert!(count == 0, "Weights remaining after folding: {count}",);
+
+    (data, (min, max))
 }

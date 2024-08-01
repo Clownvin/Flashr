@@ -24,8 +24,6 @@ struct MatchProblem<'a> {
 
 struct Quit;
 
-type MatchProblemResult<'a, 'b> = Result<MatchResult<'a, 'b>, Quit>;
-
 enum MatchResult<'a, 'b> {
     Correct(&'b PromptCard<'a>),
     Incorrect {
@@ -86,6 +84,8 @@ pub fn match_faces(
 
     Ok(progress)
 }
+
+type MatchProblemResult<'a, 'b> = Result<MatchResult<'a, 'b>, Quit>;
 
 fn show_match_problem<'a, 'b>(
     term: &mut TerminalWrapper,
