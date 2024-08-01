@@ -311,7 +311,7 @@ impl WeightLineWidget {
                 iter: &'b mut impl Iterator<Item = (usize, &'a f64)>,
                 answered: Option<&(usize, usize)>,
             ) -> (f64, Option<bool>) {
-                (0..size).fold((0.0, None), |(total, selected), _| {
+                let (total, selected) = (0..size).fold((0.0, None), |(total, selected), _| {
                     let (i, w) = iter.next().expect("Unable to get next weight");
 
                     let total = total + w;
@@ -319,8 +319,10 @@ impl WeightLineWidget {
                         .filter(|s| *s)
                         .or_else(|| answered.map(|(i_q, i_a)| i.eq(i_q) || i.eq(i_a)));
 
-                    (total / size as f64, selected)
-                })
+                    (total, selected)
+                });
+
+                (total / size as f64, selected)
             }
 
             for _ in 0..num_small {
