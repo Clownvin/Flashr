@@ -1,13 +1,11 @@
-use std::ops::AddAssign;
-
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, MouseEvent, MouseEventKind};
 
 use iter::MatchProblemIterator;
 use widget::{MatchProblemWidget, MatchProblemWidgetState};
 
 use crate::{
-    event::clear_and_match_event, stats::Stats, terminal::TerminalWrapper, CorrectIncorrect,
-    FlashrError, ModeArguments, PromptCard,
+    event::clear_and_match_event, stats::Stats, terminal::TerminalWrapper, FlashrError,
+    ModeArguments, Progress, PromptCard,
 };
 
 use super::flashcards::show_flashcards;
@@ -39,13 +37,11 @@ enum MatchResult<'a, 'b> {
 pub fn match_faces(
     term: &mut TerminalWrapper,
     args: ModeArguments,
-) -> Result<CorrectIncorrect, FlashrError> {
+) -> Result<Progress, FlashrError> {
     let rng = &mut rand::thread_rng();
     let mut stats = Stats::load_from_user_home()?;
     let mut problems =
         MatchProblemIterator::new(args.deck_cards, &mut stats, args.faces, args.line, rng);
-
-    let mut total_correct = 0;
 
     fn update_correct(card: &PromptCard, stats: &mut Stats, problems: &mut MatchProblemIterator) {
         let stats = stats.for_card_mut(card);
@@ -59,75 +55,47 @@ pub fn match_faces(
         problems.change_weight(card.index, stats.weight());
     }
 
-    fn match_result(
-        result: MatchResult,
-        total_correct: &mut usize,
-        stats: &mut Stats,
-        problems: &mut MatchProblemIterator,
-    ) {
-        match result {
-            MatchResult::Correct(card) => {
-                total_correct.add_assign(1);
-                update_correct(card, stats, problems);
+    let mut progress = Progress::default();
+    let range = args.problem_count.map_or(0..usize::MAX, |count| 0..count);
+
+    for _ in range {
+        if let Some(problem) = problems.next() {
+            let problem = &problem?;
+            let result = show_match_problem(term, problem, progress.clone())?;
+
+            match result {
+                Ok(result) => match result {
+                    MatchResult::Correct(card) => {
+                        update_correct(card, &mut stats, &mut problems);
+                        progress.add_correct();
+                    }
+                    MatchResult::Incorrect { q, a } => {
+                        update_incorrect(q, &mut stats, &mut problems);
+                        update_incorrect(a, &mut stats, &mut problems);
+                        progress.add_incorrect();
+                    }
+                },
+                Err(Quit) => break,
             }
-            MatchResult::Incorrect { q, a } => {
-                update_incorrect(q, stats, problems);
-                update_incorrect(a, stats, problems);
-            }
+        } else {
+            break;
         }
     }
 
-    let (total_correct, total) = if let Some(count) = args.problem_count {
-        for _ in 0..count {
-            if let Some(problem) = problems.next() {
-                let progress = (total_correct, count);
-                match show_match_problem(term, &problem?, progress)? {
-                    Ok(result) => {
-                        match_result(result, &mut total_correct, &mut stats, &mut problems)
-                    }
-                    Err(Quit) => break,
-                }
-            } else {
-                break;
-            }
-        }
-
-        (total_correct, count)
-    } else {
-        let mut total = 0;
-
-        for _ in 0.. {
-            if let Some(problem) = problems.next() {
-                let progress = (total_correct, total);
-                match show_match_problem(term, &problem?, progress)? {
-                    Ok(result) => {
-                        total += 1;
-
-                        match_result(result, &mut total_correct, &mut stats, &mut problems)
-                    }
-                    Err(Quit) => break,
-                }
-            } else {
-                break;
-            }
-        }
-
-        (total_correct, total)
-    };
-
     stats.save_to_file()?;
-    Ok((total_correct, total))
+
+    Ok(progress)
 }
 
 fn show_match_problem<'a, 'b>(
     term: &mut TerminalWrapper,
     problem: &'b MatchProblem<'a>,
-    progress: (usize, usize),
+    progress: Progress,
 ) -> Result<MatchProblemResult<'a, 'b>, FlashrError> {
     let widget_state = &mut MatchProblemWidgetState::default();
 
     loop {
-        term.render_stateful_widget(MatchProblemWidget::new(problem, progress), widget_state)?;
+        term.render_stateful_widget(MatchProblemWidget::new(problem, &progress), widget_state)?;
 
         let input = clear_and_match_event(|event| match_user_input(event, widget_state))?;
         match input {
@@ -143,7 +111,7 @@ fn show_match_problem<'a, 'b>(
 fn show_match_problem_result<'a, 'b>(
     term: &mut TerminalWrapper,
     problem: &'b MatchProblem<'a>,
-    progress: (usize, usize),
+    progress: Progress,
     index_answered: usize,
 ) -> Result<MatchProblemResult<'a, 'b>, FlashrError> {
     let correct = index_answered == problem.answer_index;
@@ -151,17 +119,17 @@ fn show_match_problem_result<'a, 'b>(
 
     loop {
         term.render_stateful_widget(
-            MatchProblemWidget::new(problem, progress).answered((index_answered, correct)),
+            MatchProblemWidget::new(problem, &progress).answered((index_answered, correct)),
             widget_state,
         )?;
 
         let input = clear_and_match_event(|event| match_user_input(event, widget_state))?;
         match input {
             UserInput::Answer(answer) if answer == problem.answer_index => {
-                return Ok(if correct {
-                    Ok(MatchResult::Correct(&problem.question))
+                return Ok(Ok(if correct {
+                    MatchResult::Correct(&problem.question)
                 } else {
-                    Ok(MatchResult::Incorrect {
+                    MatchResult::Incorrect {
                         q: &problem.question,
                         a: problem
                             .answers
@@ -169,8 +137,8 @@ fn show_match_problem_result<'a, 'b>(
                             .enumerate()
                             .find_map(|(i, (card, _))| (i == index_answered).then_some(card))
                             .expect("Unable to find selected answer in problem answers"),
-                    })
-                })
+                    }
+                }))
             }
             UserInput::EnterFlashcard(specific) => match specific {
                 None => {

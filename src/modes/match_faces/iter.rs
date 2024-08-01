@@ -65,6 +65,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
 
                 let (question_index, _, _) = question;
 
+                //TODO: Abilitiy to specify answer faces as well?
                 let answer = possible_faces
                     .into_iter_shuffled(self.rng)
                     .find(|(i, _, _)| *i != question_index)

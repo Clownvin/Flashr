@@ -20,7 +20,7 @@ mod stats;
 mod terminal;
 mod weighted_list;
 
-pub fn run() -> Result<Option<CorrectIncorrect>, FlashrError> {
+pub fn run() -> Result<Option<Progress>, FlashrError> {
     let cli = cli::FlashrCli::parse();
     let decks = load_decks(cli.paths)?;
     let args = ModeArguments::new(&decks, cli.problem_count, cli.faces, cli.line);
@@ -53,7 +53,6 @@ pub fn run() -> Result<Option<CorrectIncorrect>, FlashrError> {
 
 type Faces = Option<Vec<String>>;
 type ProblemCount = Option<usize>;
-type CorrectIncorrect = (usize, usize);
 
 #[derive(Clone, Copy)]
 struct DeckCard<'a> {
@@ -218,6 +217,45 @@ impl AndThen for bool {
     }
 }
 
+#[derive(Clone)]
+pub struct Progress {
+    pub correct: usize,
+    pub total: usize,
+}
+
+impl Progress {
+    fn new(correct: usize, total: usize) -> Self {
+        Self { correct, total }
+    }
+
+    pub fn ratio_percent(&self) -> (f64, f64) {
+        let ratio = if self.total == 0 {
+            //NOTE: Starting at ratio 1.0 so that
+            //colors are "correct"
+            1.0
+        } else {
+            self.correct as f64 / self.total as f64
+        };
+
+        (ratio, ratio * 100.0)
+    }
+
+    fn add_correct(&mut self) {
+        self.correct += 1;
+        self.total += 1;
+    }
+
+    fn add_incorrect(&mut self) {
+        self.total += 1;
+    }
+}
+
+impl Default for Progress {
+    fn default() -> Self {
+        Self::new(0, 0)
+    }
+}
+
 #[derive(Debug)]
 pub enum FlashrError {
     Deck(Box<DeckError>),
@@ -231,7 +269,6 @@ pub enum FlashrError {
 impl Display for FlashrError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            //TODO: Refactor this type
             Self::DeckMismatch(reason) => f.write_fmt(format_args!("DeckMismatch: {reason}")),
             Self::Deck(err) => f.write_fmt(format_args!("Deck: {err}")),
             Self::Ui(err) => f.write_fmt(format_args!("Ui: {err}")),

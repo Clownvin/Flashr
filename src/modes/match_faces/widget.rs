@@ -7,18 +7,18 @@ use ratatui::{
     },
 };
 
-use crate::color::LinearGradient;
+use crate::{color::LinearGradient, Progress};
 
 use super::{MatchProblem, ANSWERS_PER_PROBLEM};
 
 pub(super) struct MatchProblemWidget<'a> {
     problem: &'a MatchProblem<'a>,
-    progress: (usize, usize),
+    progress: &'a Progress,
     answer: Option<(usize, bool)>,
 }
 
 impl<'a> MatchProblemWidget<'a> {
-    pub(super) fn new(problem: &'a MatchProblem<'a>, progress: (usize, usize)) -> Self {
+    pub(super) fn new(problem: &'a MatchProblem<'a>, progress: &'a Progress) -> Self {
         Self {
             problem,
             progress,
@@ -214,19 +214,11 @@ impl StatefulWidget for MatchProblemWidget<'_> {
         }
 
         {
-            let (completed, total) = self.progress;
-            let (ratio, percent) = if total == 0 {
-                //NOTE: Starting at ratio 1.0 so that
-                //colors are "correct"
-                (1.0, 0.0)
-            } else {
-                let ratio = completed as f64 / total as f64;
-                (ratio, ratio * 100.0)
-            };
-
+            let (ratio, percent) = self.progress.ratio_percent();
+            let Progress { correct, total } = self.progress;
             Gauge::default()
                 .ratio(ratio)
-                .label(format!("{percent:05.2}% ({completed}/{total})"))
+                .label(format!("{percent:05.2}% ({correct}/{total})"))
                 .gauge_style(Style::default().fg(COLOR_CORRECT).bg(COLOR_INCORRECT))
                 .use_unicode(true)
                 .render(progress_area, buf);

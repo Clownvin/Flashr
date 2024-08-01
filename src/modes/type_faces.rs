@@ -3,16 +3,13 @@ use crate::{
     random::{GetRandom, IntoIterShuffled},
     stats::Stats,
     weighted_list::WeightedList,
-    CorrectIncorrect, DeckCard, OptionTuple,
+    DeckCard, OptionTuple, Progress,
 };
 use rand::rngs::ThreadRng;
 
 use crate::{deck::Deck, terminal::TerminalWrapper, FlashrError, ModeArguments};
 
-pub fn type_faces(
-    mut term: TerminalWrapper,
-    args: ModeArguments,
-) -> Result<CorrectIncorrect, FlashrError> {
+pub fn type_faces(mut term: TerminalWrapper, args: ModeArguments) -> Result<Progress, FlashrError> {
     let term = &mut term;
     let rng = &mut rand::thread_rng();
     let stats = &mut Stats::load_from_user_home()?;
@@ -90,7 +87,7 @@ struct TypeProblem<'a> {
 fn show_type_problem(
     term: &TerminalWrapper,
     problem: &TypeProblem,
-    progress: CorrectIncorrect,
-) -> Result<(), FlashrError> {
+    progress: (usize, usize),
+) -> Result<Progress, FlashrError> {
     todo!()
 }

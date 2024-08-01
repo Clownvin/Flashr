@@ -1,23 +1,19 @@
 use std::process::exit;
 
+use flashr::Progress;
+
 fn main() {
     let result = flashr::run();
     match result {
-        Ok(correct_incorrect) => {
-            if let Some((total_correct, total)) = correct_incorrect {
-                let percent_correct = if total == 0 {
-                    0.0
-                } else {
-                    (total_correct as f64 / total as f64) * 100.0
-                };
+        Ok(progress) => {
+            if let Some(progress) = progress {
+                let (_, percent) = progress.ratio_percent();
+                let Progress { correct, total } = progress;
 
-                println!(
-                    "You got {total_correct} correct out of {total} ({:.2}%)",
-                    if total == 0 { 0.0 } else { percent_correct }
-                );
+                println!("You got {correct} correct out of {total} ({percent:.2}%)");
 
                 if total >= 10 {
-                    if percent_correct == 100.0 {
+                    if percent == 100.0 {
                         if total >= 1000 {
                             println!("🌌🌟🚀 Out of this world! 🚀🌟🌌")
                         } else if total >= 100 {
@@ -25,11 +21,11 @@ fn main() {
                         } else {
                             println!("🌟 Perfect! 🌟");
                         }
-                    } else if percent_correct >= 0.9 {
+                    } else if percent >= 0.9 {
                         println!("🥇 Excellent! 🥇");
-                    } else if percent_correct >= 0.8 {
+                    } else if percent >= 0.8 {
                         println!("🥈 Well done! 🥈");
-                    } else if percent_correct >= 0.7 {
+                    } else if percent >= 0.7 {
                         println!("🥉 Nice! 🥉");
                     } else {
                         println!("Keep up the practice!");
