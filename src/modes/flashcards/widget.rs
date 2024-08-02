@@ -22,9 +22,15 @@ use crate::{
     render_utils::{horizontally_centered_area_for_string, BoxOffsets},
 };
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
-    widgets::{Block, BorderType, Borders, Paragraph, Widget, Wrap},
+    layout::{Constraint, Direction, Layout, Rect},
+    widgets::{Block, BorderType, Borders, Paragraph, StatefulWidget, Widget, Wrap},
 };
+
+#[derive(Default)]
+pub(super) struct FlashcardWidgetState {
+    pub left: Rect,
+    pub right: Rect,
+}
 
 pub(super) struct FlashcardWidget<'a> {
     prev: String,
@@ -38,9 +44,15 @@ impl<'a> FlashcardWidget<'a> {
     }
 }
 
-impl<'a> Widget for FlashcardWidget<'a> {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
-    where
+impl<'a> StatefulWidget for FlashcardWidget<'a> {
+    type State = FlashcardWidgetState;
+
+    fn render(
+        self,
+        area: ratatui::prelude::Rect,
+        buf: &mut ratatui::prelude::Buffer,
+        state: &mut Self::State,
+    ) where
         Self: Sized,
     {
         let (title_area, face_area, sides) = {
@@ -71,13 +83,14 @@ impl<'a> Widget for FlashcardWidget<'a> {
         };
 
         {
+            state.left = sides.0;
             Block::default()
                 .borders(Borders::RIGHT)
                 .border_type(BorderType::Double)
-                .render(sides.0, buf);
+                .render(state.left, buf);
 
             let area = horizontally_centered_area_for_string(
-                sides.0,
+                state.left,
                 &self.prev,
                 BoxOffsets::default().right(),
             );
@@ -111,13 +124,14 @@ impl<'a> Widget for FlashcardWidget<'a> {
         }
 
         {
+            state.right = sides.1;
             Block::default()
                 .borders(Borders::LEFT)
                 .border_type(BorderType::Plain)
-                .render(sides.1, buf);
+                .render(state.right, buf);
 
             let area = horizontally_centered_area_for_string(
-                sides.1,
+                state.right,
                 &self.next,
                 BoxOffsets::default().left(),
             );

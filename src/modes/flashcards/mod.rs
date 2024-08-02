@@ -22,7 +22,7 @@ use std::ops::{Deref, Index};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind,
 };
-use widget::FlashcardWidget;
+use widget::{FlashcardWidget, FlashcardWidgetState};
 
 use crate::{event::clear_and_match_event, terminal::TerminalWrapper, DeckCard, FlashrError};
 
@@ -136,16 +136,20 @@ fn show_flashcard(
 ) -> Result<Action, FlashrError> {
     let faces = problem.current.possible_faces();
     let mut index = WrappingIndex::new(&faces);
+    let state = &mut FlashcardWidgetState::default();
 
     loop {
         let (_, deck_face, card_face) = faces[*index];
-        term.render_widget(FlashcardWidget::new(
-            (deck_face, card_face),
-            problem.prev.front_string(),
-            problem.next.front_string(),
-        ))?;
+        term.render_stateful_widget(
+            FlashcardWidget::new(
+                (deck_face, card_face),
+                problem.prev.front_string(),
+                problem.next.front_string(),
+            ),
+            state,
+        )?;
 
-        let input = clear_and_match_event(match_user_input)?;
+        let input = clear_and_match_event(|event| match_user_input(event, state))?;
 
         match input {
             UserInput::NextFace => index.increment(),
@@ -167,7 +171,7 @@ enum UserInput {
     Quit,
 }
 
-fn match_user_input(event: Event) -> Option<UserInput> {
+fn match_user_input(event: Event, state: &FlashcardWidgetState) -> Option<UserInput> {
     match event {
         Event::Key(KeyEvent {
             kind: KeyEventKind::Press,
@@ -188,11 +192,21 @@ fn match_user_input(event: Event) -> Option<UserInput> {
         Event::Resize(_, _) => Some(UserInput::Resize),
         Event::Mouse(MouseEvent {
             kind: MouseEventKind::Up(button),
+            column,
+            row,
             ..
-        }) => Some(match button {
-            MouseButton::Left => UserInput::NextFace,
-            MouseButton::Right => UserInput::PrevFace,
-            MouseButton::Middle => UserInput::NextCard,
+        }) => Some({
+            if state.left.contains((column, row).into()) {
+                UserInput::PrevCard
+            } else if state.right.contains((column, row).into()) {
+                UserInput::NextCard
+            } else {
+                match button {
+                    MouseButton::Left => UserInput::NextFace,
+                    MouseButton::Right => UserInput::PrevFace,
+                    MouseButton::Middle => UserInput::NextCard,
+                }
+            }
         }),
         _ => None,
     }
