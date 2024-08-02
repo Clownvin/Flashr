@@ -55,6 +55,8 @@ impl<'a> StatefulWidget for FlashcardWidget<'a> {
     ) where
         Self: Sized,
     {
+        let face_string = self.face.1.join(self.face.1.infer_separator());
+
         let (title_area, face_area, sides) = {
             let (left, middle, right) = {
                 let layout = Layout::new(
@@ -70,16 +72,18 @@ impl<'a> StatefulWidget for FlashcardWidget<'a> {
                 (split[0], split[1], split[2])
             };
 
-            let (top, bottom) = {
+            let title_area = {
                 let layout = Layout::new(
                     Direction::Vertical,
-                    [Constraint::Max(3), Constraint::Min(1)],
+                    [Constraint::Length(3), Constraint::Fill(1)],
                 );
-                let split = layout.split(middle);
-                (split[0], split[1])
+                layout.split(middle)[0]
             };
 
-            (top, bottom, (left, right))
+            let face_area =
+                horizontally_centered_area_for_string(middle, &face_string, BoxOffsets::default());
+
+            (title_area, face_area, (left, right))
         };
 
         {
@@ -111,16 +115,10 @@ impl<'a> StatefulWidget for FlashcardWidget<'a> {
         }
 
         {
-            let string = self.face.1.join(self.face.1.infer_separator());
-            let mut area =
-                horizontally_centered_area_for_string(face_area, &string, BoxOffsets::default());
-
-            // To account for title
-            area.y = area.y.saturating_sub(2);
-            Paragraph::new(string)
+            Paragraph::new(face_string)
                 .wrap(Wrap { trim: false })
                 .centered()
-                .render(area, buf);
+                .render(face_area, buf);
         }
 
         {
