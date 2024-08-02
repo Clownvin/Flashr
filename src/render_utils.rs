@@ -71,40 +71,41 @@ impl BoxOffsets {
 }
 
 pub(crate) fn horizontally_centered_area_for_string(
-    area: Rect,
-    string: &String,
+    mut area: Rect,
+    string: &str,
     box_offsets: BoxOffsets,
 ) -> Rect {
     let horizontal_box_offset = box_offsets.horizontal();
     let true_area_width = area.width.saturating_sub(horizontal_box_offset);
-    if true_area_width == 0 {
+
+    if true_area_width == 0 || area.height == 0 {
         return area;
     }
 
     let vertical_box_offset = box_offsets.vertical();
     let true_area_height = area.height.saturating_sub(vertical_box_offset);
+
+    area.x += box_offsets.has(LEFT) as u16;
+    area.y += box_offsets.has(TOP) as u16;
+    area.width = true_area_width;
+    area.height = true_area_height;
+
     if true_area_height <= 1 {
         return area;
     }
 
-    let lines = ((string.width() as f64 / true_area_width as f64).ceil() as usize).max(1);
+    let lines = string.split("\n").fold(0.0, |total, s| {
+        total + (s.width() as f64 / true_area_width as f64).ceil()
+    });
 
-    if lines >= true_area_height as usize {
-        area
-    } else {
+    if true_area_height as usize > lines as usize {
         //SAFETY: Converting to u16 now rather than earlier
         //as lines could potentially have been larger than a u16.
         let lines = lines as u16;
-        let box_top = box_offsets.has(TOP) as u16;
-        let box_left = box_offsets.has(LEFT) as u16;
 
-        let top = area.y + box_top + ((true_area_height / 2) - (lines / 2));
-
-        Rect {
-            x: area.x + box_left,
-            y: top,
-            width: area.width - box_offsets.horizontal(),
-            height: lines,
-        }
+        area.y += (true_area_height - lines) / 2;
+        area.height = lines;
     }
+
+    area
 }

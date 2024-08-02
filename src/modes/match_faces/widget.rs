@@ -84,10 +84,10 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                         let layout = Layout::new(
                             Direction::Vertical,
                             [
-                                Constraint::Ratio(1, 12),
+                                Constraint::Fill(1),
                                 Constraint::Ratio(3, 12),
                                 Constraint::Ratio(8, 12),
-                                Constraint::Min(1),
+                                Constraint::Max(1),
                             ],
                         );
                         let split = layout.split(area);
@@ -100,7 +100,7 @@ impl StatefulWidget for MatchProblemWidget<'_> {
                             [
                                 Constraint::Ratio(1, 3),
                                 Constraint::Ratio(2, 3),
-                                Constraint::Min(1),
+                                Constraint::Max(1),
                             ],
                         );
 
