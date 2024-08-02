@@ -90,7 +90,7 @@ impl<'a> StatefulWidget for FlashcardWidget<'a> {
             state.left = sides.0;
             Block::default()
                 .borders(Borders::RIGHT)
-                .border_type(BorderType::Double)
+                .border_type(BorderType::Plain)
                 .render(state.left, buf);
 
             let area = horizontally_centered_area_for_string(
