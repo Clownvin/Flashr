@@ -17,20 +17,24 @@
  * along with Flashr.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use crate::{
+    deck::Face,
+    render_utils::{horizontally_centered_area_for_string, BoxOffsets},
+};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    widgets::{Paragraph, Widget, Wrap},
+    widgets::{Block, BorderType, Borders, Paragraph, Widget, Wrap},
 };
 
-use crate::deck::Face;
-
 pub(super) struct FlashcardWidget<'a> {
+    prev: String,
     face: (&'a String, &'a Face),
+    next: String,
 }
 
 impl<'a> FlashcardWidget<'a> {
-    pub fn new(face: (&'a String, &'a Face)) -> Self {
-        Self { face }
+    pub fn new(face: (&'a String, &'a Face), prev: String, next: String) -> Self {
+        Self { face, prev, next }
     }
 }
 
@@ -39,24 +43,88 @@ impl<'a> Widget for FlashcardWidget<'a> {
     where
         Self: Sized,
     {
-        let (face_name_area, face_area) = {
-            let layout = Layout::new(
-                Direction::Vertical,
-                [Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)],
-            );
+        let (title_area, face_area, sides) = {
+            let (left, middle, right) = {
+                let layout = Layout::new(
+                    Direction::Horizontal,
+                    [
+                        Constraint::Ratio(1, 6),
+                        Constraint::Ratio(2, 3),
+                        Constraint::Ratio(1, 6),
+                    ],
+                );
+                let split = layout.split(area);
 
-            let split = layout.split(area);
-            (split[0], split[1])
+                (split[0], split[1], split[2])
+            };
+
+            let (top, bottom) = {
+                let layout = Layout::new(
+                    Direction::Vertical,
+                    [Constraint::Max(3), Constraint::Min(1)],
+                );
+                let split = layout.split(middle);
+                (split[0], split[1])
+            };
+
+            (top, bottom, (left, right))
         };
 
-        Paragraph::new(format!("{}:", self.face.0).to_owned())
-            .wrap(Wrap { trim: false })
-            .centered()
-            .render(face_name_area, buf);
+        {
+            Block::default()
+                .borders(Borders::RIGHT)
+                .border_type(BorderType::Double)
+                .render(sides.0, buf);
 
-        Paragraph::new(self.face.1.join(self.face.1.infer_separator()))
-            .wrap(Wrap { trim: false })
-            .centered()
-            .render(face_area, buf)
+            let area = horizontally_centered_area_for_string(
+                sides.0,
+                &self.prev,
+                BoxOffsets::default().right(),
+            );
+            Paragraph::new(self.prev)
+                .wrap(Wrap { trim: false })
+                .centered()
+                .render(area, buf);
+        }
+
+        {
+            let string = format!("{}:", self.face.0);
+            let area =
+                horizontally_centered_area_for_string(title_area, &string, BoxOffsets::default());
+            Paragraph::new(string)
+                .wrap(Wrap { trim: false })
+                .centered()
+                .render(area, buf);
+        }
+
+        {
+            let string = self.face.1.join(self.face.1.infer_separator());
+            let mut area =
+                horizontally_centered_area_for_string(face_area, &string, BoxOffsets::default());
+
+            // To account for title
+            area.y = area.y.saturating_sub(2);
+            Paragraph::new(string)
+                .wrap(Wrap { trim: false })
+                .centered()
+                .render(area, buf);
+        }
+
+        {
+            Block::default()
+                .borders(Borders::LEFT)
+                .border_type(BorderType::Plain)
+                .render(sides.1, buf);
+
+            let area = horizontally_centered_area_for_string(
+                sides.1,
+                &self.next,
+                BoxOffsets::default().left(),
+            );
+            Paragraph::new(self.next)
+                .wrap(Wrap { trim: false })
+                .centered()
+                .render(area, buf);
+        }
     }
 }

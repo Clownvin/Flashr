@@ -53,36 +53,37 @@ impl<'a, T> WrappingIndex<'a, T>
 where
     T: Index<usize> + Length,
 {
-    fn new(backing: &'a T, index: usize) -> Self {
-        assert!(
-            index < backing.length(),
-            "Backing container must have a length greather than index"
-        );
-
-        Self { backing, index }
+    fn new(backing: &'a T) -> Self {
+        Self { backing, index: 0 }
     }
 
     fn max_index(&self) -> usize {
         self.backing.length() - 1
     }
 
-    fn increment(&mut self) {
+    fn next_index(&self) -> usize {
         let max_index = self.max_index();
-        let next_index = if self.index == max_index {
+        if self.index == max_index {
             0
         } else {
             self.index + 1
-        };
-        self.index = next_index;
+        }
     }
 
-    fn decrement(&mut self) {
-        let next_index = if self.index == 0 {
+    fn prev_index(&self) -> usize {
+        if self.index == 0 {
             self.max_index()
         } else {
             self.index - 1
-        };
-        self.index = next_index;
+        }
+    }
+
+    fn increment(&mut self) {
+        self.index = self.next_index();
+    }
+
+    fn decrement(&mut self) {
+        self.index = self.prev_index();
     }
 }
 
@@ -102,12 +103,16 @@ pub fn show_flashcards(
         return Ok(());
     }
 
-    let mut index = WrappingIndex::new(&deck_cards, 0);
+    let mut index = WrappingIndex::new(&deck_cards);
 
     loop {
-        let card = deck_cards[*index];
+        let problem = FlashcardProblem {
+            prev: deck_cards[index.prev_index()],
+            current: deck_cards[*index],
+            next: deck_cards[index.next_index()],
+        };
 
-        let action = show_flashcard(term, card)?;
+        let action = show_flashcard(term, problem)?;
 
         match action {
             Action::Prev => index.decrement(),
@@ -119,13 +124,26 @@ pub fn show_flashcards(
     Ok(())
 }
 
-fn show_flashcard(term: &mut TerminalWrapper, card: DeckCard) -> Result<Action, FlashrError> {
-    let faces = card.possible_faces();
-    let mut index = WrappingIndex::new(&faces, 0);
+struct FlashcardProblem<'a> {
+    prev: DeckCard<'a>,
+    current: DeckCard<'a>,
+    next: DeckCard<'a>,
+}
+
+fn show_flashcard(
+    term: &mut TerminalWrapper,
+    problem: FlashcardProblem,
+) -> Result<Action, FlashrError> {
+    let faces = problem.current.possible_faces();
+    let mut index = WrappingIndex::new(&faces);
 
     loop {
         let (_, deck_face, card_face) = faces[*index];
-        term.render_widget(FlashcardWidget::new((deck_face, card_face)))?;
+        term.render_widget(FlashcardWidget::new(
+            (deck_face, card_face),
+            problem.prev.front_string(),
+            problem.next.front_string(),
+        ))?;
 
         let input = clear_and_match_event(match_user_input)?;
 
