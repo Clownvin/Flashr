@@ -35,6 +35,7 @@ pub mod deck;
 mod event;
 mod modes;
 mod random;
+mod render_utils;
 mod stats;
 mod terminal;
 mod weighted_list;
