@@ -85,6 +85,10 @@ where
     fn decrement(&mut self) {
         self.index = self.prev_index();
     }
+
+    fn set(&mut self, index: usize) {
+        self.index = index.min(self.max_index());
+    }
 }
 
 impl<'a, T> Deref for WrappingIndex<'a, T> {
@@ -154,6 +158,7 @@ fn show_flashcard(
         match input {
             UserInput::NextFace => index.increment(),
             UserInput::PrevFace => index.decrement(),
+            UserInput::ExactFace(exact_index) => index.set(exact_index),
             UserInput::NextCard => return Ok(Action::Next),
             UserInput::PrevCard => return Ok(Action::Prev),
             UserInput::Quit => return Ok(Action::Quit),
@@ -165,6 +170,7 @@ fn show_flashcard(
 enum UserInput {
     NextFace,
     PrevFace,
+    ExactFace(usize),
     NextCard,
     PrevCard,
     Resize,
@@ -187,6 +193,15 @@ fn match_user_input(event: Event, state: &FlashcardWidgetState) -> Option<UserIn
                 Some(UserInput::NextFace)
             }
             KeyCode::Esc | KeyCode::Char('q') => Some(UserInput::Quit),
+            KeyCode::Char(char) => char.to_digit(10).map(|index| {
+                UserInput::ExactFace(
+                    (index as usize)
+                        //NOTE: Subbing one so that '1' is actually index 0
+                        //More logical than expecting the user to understand
+                        //zero-indexing
+                        .saturating_sub(1),
+                )
+            }),
             _ => None,
         },
         Event::Resize(_, _) => Some(UserInput::Resize),
