@@ -70,40 +70,44 @@ impl BoxOffsets {
     }
 }
 
-pub(crate) fn horizontally_centered_area_for_string(
-    mut area: Rect,
-    string: &str,
-    box_offsets: BoxOffsets,
-) -> Rect {
-    let horizontal_box_offset = box_offsets.horizontal();
-    let true_area_width = area.width.saturating_sub(horizontal_box_offset);
+const fn crop_box(mut area: Rect, box_offsets: BoxOffsets) -> Rect {
+    let true_area_width = area.width.saturating_sub(box_offsets.horizontal());
 
     if true_area_width == 0 || area.height == 0 {
         return area;
     }
 
-    let vertical_box_offset = box_offsets.vertical();
-    let true_area_height = area.height.saturating_sub(vertical_box_offset);
+    let true_area_height = area.height.saturating_sub(box_offsets.vertical());
 
     area.x += box_offsets.has(LEFT) as u16;
     area.y += box_offsets.has(TOP) as u16;
     area.width = true_area_width;
     area.height = true_area_height;
 
-    if true_area_height <= 1 {
+    area
+}
+
+pub(crate) fn horizontally_centered_area_for_string(
+    area: Rect,
+    string: &str,
+    box_offsets: BoxOffsets,
+) -> Rect {
+    let mut area = crop_box(area, box_offsets);
+
+    if area.height <= 1 {
         return area;
     }
 
-    let lines = string.split("\n").fold(0.0, |total, s| {
-        total + (s.width() as f64 / true_area_width as f64).ceil()
+    let lines = string.lines().fold(0.0, |total, s| {
+        total + (s.width() as f64 / area.width as f64).ceil()
     });
 
-    if true_area_height as usize > lines as usize {
-        //SAFETY: Converting to u16 now rather than earlier
-        //as lines could potentially have been larger than a u16.
+    //SAFETY: Convert to usize first, which is guaranteed to be able to hold
+    //line count
+    if area.height as usize > lines as usize {
         let lines = lines as u16;
 
-        area.y += (true_area_height - lines) / 2;
+        area.y += (area.height - lines) / 2;
         area.height = lines;
     }
 
