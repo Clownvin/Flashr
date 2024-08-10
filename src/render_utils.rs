@@ -23,6 +23,7 @@ use unicode_width::UnicodeWidthStr;
 /// Offsets to account for boxes.
 /// Eg, if Text is boxed on all sides, would use 2 for both
 #[derive(Default)]
+#[repr(transparent)]
 pub(crate) struct BoxOffsets {
     flags: u8,
 }
@@ -32,6 +33,7 @@ const BOT: u8 = 0x2;
 const LEFT: u8 = 0x4;
 const RIGHT: u8 = 0x8;
 
+#[allow(unused)]
 impl BoxOffsets {
     pub const fn top(self) -> Self {
         Self {

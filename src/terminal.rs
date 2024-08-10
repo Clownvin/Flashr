@@ -69,6 +69,7 @@ mod raw_mode {
 
     use lock::Lock;
 
+    #[repr(transparent)]
     pub struct RawMode(Lock);
 
     impl RawMode {
@@ -90,6 +91,7 @@ mod raw_mode {
 
         static LOCKED: Mutex<bool> = Mutex::new(false);
 
+        #[repr(transparent)]
         pub struct Lock(());
 
         impl Lock {
@@ -119,6 +121,7 @@ mod alt_screen {
 
     use super::raw_mode::RawMode;
 
+    #[repr(transparent)]
     pub struct AltScreen(RawMode);
 
     impl AltScreen {
@@ -143,6 +146,7 @@ mod mouse_capture {
 
     use super::alt_screen::AltScreen;
 
+    #[repr(transparent)]
     pub struct MouseCapture(AltScreen);
 
     impl MouseCapture {

@@ -51,6 +51,7 @@ impl<'a> MatchProblemWidget<'a> {
     }
 }
 
+#[repr(transparent)]
 pub(super) struct MatchProblemWidgetState {
     pub(super) answer_areas: Vec<Rect>,
 }
@@ -303,6 +304,7 @@ type MinMax = (f64, f64);
 type WeightsWithSelected = Vec<(f64, Option<bool>)>;
 type ResizedWeights = (WeightsWithSelected, MinMax);
 
+#[repr(transparent)]
 struct WeightLineWidget {
     weights: WeightsWithSelected,
 }

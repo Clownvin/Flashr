@@ -83,6 +83,7 @@ impl Deref for Deck {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
+#[repr(transparent)]
 pub struct Card(Vec<Option<Face>>);
 
 ///Card within a deck must have at least two faces: a front and back
@@ -139,6 +140,7 @@ impl Deref for Card {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+#[repr(transparent)]
 pub struct CardId(String);
 
 impl CardId {

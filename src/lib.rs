@@ -203,6 +203,7 @@ impl<'a> ModeArguments<'a> {
     }
 }
 
+#[repr(transparent)]
 struct OptionTuple<T>(Option<(T, T)>);
 
 impl<T> Deref for OptionTuple<T> {

@@ -28,6 +28,7 @@ pub(crate) struct Color {
     b: u8,
 }
 
+#[repr(transparent)]
 pub(crate) struct Percent(f64);
 
 impl From<f64> for Percent {
@@ -85,6 +86,7 @@ impl From<Color> for RatColor {
     }
 }
 
+#[repr(transparent)]
 pub struct LinearGradient {
     colors: Vec<Color>,
 }
