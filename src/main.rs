@@ -40,11 +40,11 @@ fn main() {
                         } else {
                             println!("🌟 Perfect! 🌟");
                         }
-                    } else if percent >= 0.9 {
+                    } else if percent >= 90.0 {
                         println!("🥇 Excellent! 🥇");
-                    } else if percent >= 0.8 {
+                    } else if percent >= 80.0 {
                         println!("🥈 Well done! 🥈");
-                    } else if percent >= 0.7 {
+                    } else if percent >= 70.0 {
                         println!("🥉 Nice! 🥉");
                     } else {
                         println!("Keep up the practice!");
