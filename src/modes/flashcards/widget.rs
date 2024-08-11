@@ -55,7 +55,7 @@ impl<'a> StatefulWidget for FlashcardWidget<'a> {
     ) where
         Self: Sized,
     {
-        let face_string = self.face.1.join(self.face.1.infer_separator());
+        let face_string = self.face.1.join();
 
         let (title_area, face_area, sides) = {
             let (left, middle, right) = {

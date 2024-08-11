@@ -167,8 +167,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
 
         Some(Ok(MatchProblem {
             question: PromptCard {
-                prompt: problem_question_face
-                    .join_random(problem_question_face.infer_separator(), self.rng),
+                prompt: problem_question_face.join_random(self.rng),
                 deck_card: *problem_deck_card,
                 index: problem_index,
             },
@@ -177,8 +176,7 @@ impl<'a> Iterator for MatchProblemIterator<'a> {
                 for ((answer_face, answer_deck_card, answer_index), correct) in answer_cards {
                     buf.push((
                         PromptCard {
-                            prompt: answer_face
-                                .join_random(answer_face.infer_separator(), self.rng),
+                            prompt: answer_face.join_random(self.rng),
                             deck_card: answer_deck_card,
                             index: answer_index,
                         },

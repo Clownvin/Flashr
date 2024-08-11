@@ -172,20 +172,20 @@ pub enum Face {
 }
 
 impl Face {
-    pub fn join(&self, sep: &str) -> String {
+    pub fn join(&self) -> String {
         match self {
             Self::Single(face) => face.clone(),
-            Self::Multi(faces) => faces.join(sep),
+            Self::Multi(faces) => faces.join(self.infer_separator()),
         }
     }
 
-    pub fn join_random(&self, sep: &str, rng: &mut ThreadRng) -> String {
+    pub fn join_random(&self, rng: &mut ThreadRng) -> String {
         match self {
             Self::Single(face) => face.clone(),
             Self::Multi(faces) => {
                 let mut faces = faces.clone();
                 faces.shuffle(rng);
-                faces.join(sep)
+                faces.join(self.infer_separator())
             }
         }
     }
@@ -224,7 +224,7 @@ impl From<&str> for Face {
 
 impl Display for Face {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.join(self.infer_separator()))
+        f.write_str(&self.join())
     }
 }
 
