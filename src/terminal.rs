@@ -21,8 +21,8 @@ use std::sync::Mutex;
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
+    execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    ExecutableCommand,
 };
 use ratatui::{
     backend::CrosstermBackend,
@@ -112,14 +112,14 @@ struct AltScreen(RawMode);
 
 impl AltScreen {
     fn enter(raw_mode: RawMode) -> Result<Self, std::io::Error> {
-        std::io::stdout().execute(EnterAlternateScreen)?;
+        execute!(std::io::stdout(), EnterAlternateScreen)?;
         Ok(Self(raw_mode))
     }
 }
 
 impl Drop for AltScreen {
     fn drop(&mut self) {
-        let _ = std::io::stdout().execute(LeaveAlternateScreen);
+        let _ = execute!(std::io::stdout(), LeaveAlternateScreen);
     }
 }
 
@@ -128,13 +128,13 @@ struct MouseCapture(AltScreen);
 
 impl MouseCapture {
     fn enable(alt_screen: AltScreen) -> Result<Self, std::io::Error> {
-        std::io::stdout().execute(EnableMouseCapture)?;
+        execute!(std::io::stdout(), EnableMouseCapture)?;
         Ok(Self(alt_screen))
     }
 }
 
 impl Drop for MouseCapture {
     fn drop(&mut self) {
-        let _ = std::io::stdout().execute(DisableMouseCapture);
+        let _ = execute!(std::io::stdout(), DisableMouseCapture);
     }
 }
