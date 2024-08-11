@@ -163,29 +163,16 @@ fn get_home_config_file() -> Result<PathBuf, StatsError> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct CardStats {
     pub correct: usize,
     pub incorrect: usize,
 }
 
 impl CardStats {
-    fn new() -> Self {
-        Self {
-            correct: 0,
-            incorrect: 0,
-        }
-    }
-
     pub fn weight(&self) -> f64 {
         (1.0 / (self.correct.saturating_sub(self.incorrect) + 1) as f64)
             + self.incorrect.saturating_sub(self.correct) as f64
-    }
-}
-
-impl Default for CardStats {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
