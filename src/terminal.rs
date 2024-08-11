@@ -17,14 +17,18 @@
  * along with Flashr.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use alt_screen::AltScreen;
-use mouse_capture::MouseCapture;
+use std::sync::Mutex;
+
+use crossterm::{
+    event::{DisableMouseCapture, EnableMouseCapture},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand,
+};
 use ratatui::{
     backend::CrosstermBackend,
     widgets::{StatefulWidget, Widget},
     Frame, Terminal,
 };
-use raw_mode::RawMode;
 
 use crate::{FlashrError, UiError};
 
@@ -51,8 +55,9 @@ impl TerminalWrapper {
         Ok(())
     }
 
+    #[allow(unused)]
     pub fn render_widget(&mut self, widget: impl Widget) -> Result<(), FlashrError> {
-        self.draw(|frame| frame.render_widget(widget, frame.size()))
+        self.draw(|frame| frame.render_widget(widget, frame.area()))
     }
 
     pub fn render_stateful_widget<W: StatefulWidget>(
@@ -60,105 +65,76 @@ impl TerminalWrapper {
         widget: W,
         state: &mut W::State,
     ) -> Result<(), FlashrError> {
-        self.draw(|frame| frame.render_stateful_widget(widget, frame.size(), state))
+        self.draw(|frame| frame.render_stateful_widget(widget, frame.area(), state))
     }
 }
 
-mod raw_mode {
-    use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+static LOCKED: Mutex<bool> = Mutex::new(false);
 
-    use lock::Lock;
+struct Lock;
 
-    #[repr(transparent)]
-    pub struct RawMode(Lock);
-
-    impl RawMode {
-        pub fn enable() -> Result<RawMode, std::io::Error> {
-            let lock = Lock::acquire();
-            enable_raw_mode()?;
-            Ok(RawMode(lock))
-        }
-    }
-
-    impl Drop for RawMode {
-        fn drop(&mut self) {
-            let _ = disable_raw_mode();
-        }
-    }
-
-    mod lock {
-        use std::sync::Mutex;
-
-        static LOCKED: Mutex<bool> = Mutex::new(false);
-
-        #[repr(transparent)]
-        pub struct Lock(());
-
-        impl Lock {
-            pub fn acquire() -> Lock {
-                let mut locked = LOCKED.lock().expect("Unable to acquire lock mutex");
-                assert!(!*locked);
-                *locked = true;
-                Lock(())
-            }
-        }
-
-        impl Drop for Lock {
-            fn drop(&mut self) {
-                let mut locked = LOCKED.lock().expect("Unable to acquire lock mutex");
-                assert!(*locked);
-                *locked = false;
-            }
-        }
+impl Lock {
+    fn acquire() -> Lock {
+        let mut locked = LOCKED.lock().expect("Unable to acquire lock mutex");
+        assert!(!*locked, "Terminal is already being used, cannot lock");
+        *locked = true;
+        Lock
     }
 }
 
-mod alt_screen {
-    use crossterm::{
-        terminal::{EnterAlternateScreen, LeaveAlternateScreen},
-        ExecutableCommand,
-    };
-
-    use super::raw_mode::RawMode;
-
-    #[repr(transparent)]
-    pub struct AltScreen(RawMode);
-
-    impl AltScreen {
-        pub fn enter(raw_mode: RawMode) -> Result<Self, std::io::Error> {
-            std::io::stdout().execute(EnterAlternateScreen)?;
-            Ok(Self(raw_mode))
-        }
-    }
-
-    impl Drop for AltScreen {
-        fn drop(&mut self) {
-            let _ = std::io::stdout().execute(LeaveAlternateScreen);
-        }
+impl Drop for Lock {
+    fn drop(&mut self) {
+        let mut locked = LOCKED.lock().expect("Unable to acquire lock mutex");
+        assert!(*locked, "Terminal is not being used, cannot unlock");
+        *locked = false;
     }
 }
 
-mod mouse_capture {
-    use crossterm::{
-        event::{DisableMouseCapture, EnableMouseCapture},
-        ExecutableCommand,
-    };
+#[repr(transparent)]
+struct RawMode(Lock);
 
-    use super::alt_screen::AltScreen;
-
-    #[repr(transparent)]
-    pub struct MouseCapture(AltScreen);
-
-    impl MouseCapture {
-        pub fn enable(alt_screen: AltScreen) -> Result<Self, std::io::Error> {
-            std::io::stdout().execute(EnableMouseCapture)?;
-            Ok(Self(alt_screen))
-        }
+impl RawMode {
+    fn enable() -> Result<RawMode, std::io::Error> {
+        let lock = Lock::acquire();
+        enable_raw_mode()?;
+        Ok(RawMode(lock))
     }
+}
 
-    impl Drop for MouseCapture {
-        fn drop(&mut self) {
-            let _ = std::io::stdout().execute(DisableMouseCapture);
-        }
+impl Drop for RawMode {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+    }
+}
+
+#[repr(transparent)]
+struct AltScreen(RawMode);
+
+impl AltScreen {
+    fn enter(raw_mode: RawMode) -> Result<Self, std::io::Error> {
+        std::io::stdout().execute(EnterAlternateScreen)?;
+        Ok(Self(raw_mode))
+    }
+}
+
+impl Drop for AltScreen {
+    fn drop(&mut self) {
+        let _ = std::io::stdout().execute(LeaveAlternateScreen);
+    }
+}
+
+#[repr(transparent)]
+struct MouseCapture(AltScreen);
+
+impl MouseCapture {
+    fn enable(alt_screen: AltScreen) -> Result<Self, std::io::Error> {
+        std::io::stdout().execute(EnableMouseCapture)?;
+        Ok(Self(alt_screen))
+    }
+}
+
+impl Drop for MouseCapture {
+    fn drop(&mut self) {
+        let _ = std::io::stdout().execute(DisableMouseCapture);
     }
 }

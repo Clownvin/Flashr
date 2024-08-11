@@ -9,12 +9,12 @@ license = "GPL-3.0-or-later"
 # debug = 1
 
 [dependencies]
-clap = { version = "4.5.13", features = ["derive"] }
-crossterm = "0.27.0"
+clap = { version = "4.5.15", features = ["derive"] }
+crossterm = "0.28.1"
 dirs = "5.0.1"
 hashbrown = { version = "0.14.5", features = ["serde"]}
 rand = "0.8.5"
-ratatui = "0.27.0"
-serde = { "version" = "1.0.204", "features" = ["std", "derive"] }
+ratatui = "0.28.0"
+serde = { "version" = "1.0.205", "features" = ["std", "derive"] }
 serde_json = "1.0.122"
 unicode-width = "0.1.13"
