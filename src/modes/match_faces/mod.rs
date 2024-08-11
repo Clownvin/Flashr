@@ -78,7 +78,7 @@ pub fn match_faces(
     for _ in range {
         if let Some(problem) = problems.next() {
             let problem = &problem?;
-            let result = show_match_problem(term, problem, progress.clone())?;
+            let result = show_match_problem(term, problem, progress)?;
 
             match result {
                 Ok(result) => match result {

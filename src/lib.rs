@@ -238,17 +238,13 @@ impl AndThen for bool {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy, Default)]
 pub struct Progress {
     pub correct: usize,
     pub total: usize,
 }
 
 impl Progress {
-    fn new(correct: usize, total: usize) -> Self {
-        Self { correct, total }
-    }
-
     pub fn ratio_percent(&self) -> (f64, f64) {
         let ratio = if self.total == 0 {
             //NOTE: Starting at ratio 1.0 so that
@@ -268,12 +264,6 @@ impl Progress {
 
     fn add_incorrect(&mut self) {
         self.total += 1;
-    }
-}
-
-impl Default for Progress {
-    fn default() -> Self {
-        Self::new(0, 0)
     }
 }
 
