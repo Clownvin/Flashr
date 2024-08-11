@@ -52,10 +52,13 @@ impl<'a> TypeProblemIterator<'a> {
         faces: Option<Vec<String>>,
         rng: &'a mut ThreadRng,
     ) -> Self {
-        let cards = deck_cards
-            .into_iter()
-            .map(|deck_card| (deck_card, stats.for_card(&deck_card).weight()))
-            .collect();
+        let cards = {
+            let mut cards = WeightedList::with_capacity(deck_cards.len());
+            deck_cards
+                .into_iter()
+                .for_each(|deck_card| cards.add((deck_card, stats.for_card(&deck_card).weight())));
+            cards
+        };
         Self { rng, cards, faces }
     }
 }

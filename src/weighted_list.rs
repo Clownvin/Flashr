@@ -33,13 +33,6 @@ pub(crate) struct WeightedList<T> {
 ///Interally the list is sorted by weight so that
 ///the number of average iterations during a search in minimized.
 impl<T> WeightedList<T> {
-    pub fn new() -> Self {
-        Self {
-            items: Vec::default(),
-            total_weight: 0.0,
-        }
-    }
-
     pub fn add(&mut self, item: impl Into<ItemAndWeight<T>>) {
         let item = item.into();
         let weight = item.1;
@@ -75,7 +68,7 @@ impl<T> WeightedList<T> {
 
     pub fn get(&self, rng: &mut ThreadRng) -> Option<(&T, usize)> {
         self.get_index(rng).map(|index| {
-            let (item, _) = self.items.get(index).expect("Unable to find item at index");
+            let (item, _) = &self.items[index];
             (item, index)
         })
     }
@@ -104,32 +97,7 @@ impl<T> WeightedList<T> {
     }
 
     pub fn weights(&self) -> Vec<f64> {
-        let mut buf = Vec::with_capacity(self.len());
-        self.items.iter().for_each(|(_, weight)| buf.push(*weight));
-        buf
-    }
-}
-
-impl<T> Default for WeightedList<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T> FromIterator<ItemAndWeight<T>> for WeightedList<T> {
-    fn from_iter<I: IntoIterator<Item = (T, f64)>>(iter: I) -> Self {
-        let iter = iter.into_iter();
-
-        let mut list = {
-            let (lower_bound, _) = iter.size_hint();
-            Self::with_capacity(lower_bound)
-        };
-
-        for item_weight in iter {
-            list.add(item_weight);
-        }
-
-        list
+        self.items.iter().map(|(_, weight)| *weight).collect()
     }
 }
 
@@ -161,7 +129,33 @@ mod tests {
 
     use crate::random::IntoIterShuffled;
 
-    use super::WeightedList;
+    use super::{ItemAndWeight, WeightedList};
+
+    impl<T> Default for WeightedList<T> {
+        fn default() -> Self {
+            Self {
+                items: Vec::default(),
+                total_weight: 0.0,
+            }
+        }
+    }
+
+    impl<T> FromIterator<ItemAndWeight<T>> for WeightedList<T> {
+        fn from_iter<I: IntoIterator<Item = (T, f64)>>(iter: I) -> Self {
+            let iter = iter.into_iter();
+
+            let mut list = {
+                let (lower_bound, _) = iter.size_hint();
+                Self::with_capacity(lower_bound)
+            };
+
+            for item_weight in iter {
+                list.add(item_weight);
+            }
+
+            list
+        }
+    }
 
     trait MinMax<T> {
         fn min_max(&self) -> (&T, &T);
@@ -227,6 +221,7 @@ mod tests {
     }
 
     #[derive(Clone, PartialEq, Eq)]
+    #[repr(transparent)]
     struct W(usize);
 
     #[test]
