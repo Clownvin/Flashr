@@ -19,21 +19,13 @@
 
 use rand::{rngs::ThreadRng, Rng};
 
+pub trait RandomIndex {
+    fn random_index(&self, rng: &mut ThreadRng) -> Option<usize>;
+}
+
 pub trait RemoveRandom {
     type Item;
     fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item>;
-}
-
-impl<T> RemoveRandom for Vec<T> {
-    type Item = T;
-
-    fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item> {
-        match self.len() {
-            0 => None,
-            1 => Some(self.swap_remove(0)),
-            r => Some(self.swap_remove(rng.gen_range(0..r))),
-        }
-    }
 }
 
 pub trait IntoIterShuffled<'rng, C>
@@ -77,15 +69,28 @@ pub trait GetRandom {
     fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item>;
 }
 
-impl<'a, T> GetRandom for &'a Vec<T> {
-    type Item = &'a T;
-
-    fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item> {
+impl<T> RandomIndex for Vec<T> {
+    fn random_index(&self, rng: &mut ThreadRng) -> Option<usize> {
         match self.len() {
             0 => None,
-            1 => self.first(),
-            len => self.get(rng.gen_range(0..len)),
+            1 => Some(0),
+            r => Some(rng.gen_range(0..r)),
         }
+    }
+}
+
+impl<T> RemoveRandom for Vec<T> {
+    type Item = T;
+
+    fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item> {
+        self.random_index(rng).map(|index| self.swap_remove(index))
+    }
+}
+
+impl<'a, T> GetRandom for &'a Vec<T> {
+    type Item = &'a T;
+    fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item> {
+        self.random_index(rng).and_then(|index| self.get(index))
     }
 }
 

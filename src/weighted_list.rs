@@ -19,7 +19,7 @@
 
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::random::{GetRandom, RemoveRandom};
+use crate::random::{GetRandom, RandomIndex, RemoveRandom};
 
 pub(crate) type ItemAndWeight<T> = (T, f64);
 
@@ -44,33 +44,6 @@ impl<T> WeightedList<T> {
 
         self.items.push(item);
         self.total_weight += weight;
-    }
-
-    fn get_index(&self, rng: &mut ThreadRng) -> Option<usize> {
-        match self.len() {
-            0 => None,
-            1 => Some(0),
-            _ => {
-                let needle = rng.gen_range(0.0..self.total_weight);
-                let mut running_total = 0.0;
-
-                for (i, (_, weight)) in self.items.iter().enumerate() {
-                    running_total += *weight;
-                    if needle < running_total {
-                        return Some(i);
-                    }
-                }
-
-                panic!("Reached end without finding match");
-            }
-        }
-    }
-
-    pub fn get(&self, rng: &mut ThreadRng) -> Option<(&T, usize)> {
-        self.get_index(rng).map(|index| {
-            let (item, _) = &self.items[index];
-            (item, index)
-        })
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
@@ -101,11 +74,36 @@ impl<T> WeightedList<T> {
     }
 }
 
+impl<T> RandomIndex for WeightedList<T> {
+    fn random_index(&self, rng: &mut ThreadRng) -> Option<usize> {
+        match self.len() {
+            0 => None,
+            1 => Some(0),
+            _ => {
+                let needle = rng.gen_range(0.0..self.total_weight);
+                let mut running_total = 0.0;
+
+                for (i, (_, weight)) in self.items.iter().enumerate() {
+                    running_total += *weight;
+                    if needle < running_total {
+                        return Some(i);
+                    }
+                }
+
+                panic!("Reached end without finding match");
+            }
+        }
+    }
+}
+
 impl<'a, T> GetRandom for &'a WeightedList<T> {
     type Item = (&'a T, usize);
 
     fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item> {
-        self.get(rng)
+        self.random_index(rng).map(|index| {
+            let (item, _) = &self.items[index];
+            (item, index)
+        })
     }
 }
 
@@ -113,7 +111,7 @@ impl<T> RemoveRandom for WeightedList<T> {
     type Item = (ItemAndWeight<T>, usize);
 
     fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item> {
-        self.get_index(rng).map(|index| {
+        self.random_index(rng).map(|index| {
             let item = self.items.swap_remove(index);
             self.total_weight -= item.1;
             (item, index)
