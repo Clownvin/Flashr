@@ -128,27 +128,22 @@ impl Stats {
     }
 
     pub fn for_card(&mut self, id: impl Into<CardId>) -> &CardStats {
-        let id = id.into();
-        if self.card_stats.contains_key(&id) {
-            self.card_stats.get(&id)
-        } else {
-            let stats = Default::default();
-            self.card_stats.insert(id.clone(), stats);
-            self.card_stats.get(&id)
-        }
-        .expect("Unable to find stats for card")
+        self.for_card_mut(id)
     }
 
     pub fn for_card_mut(&mut self, id: impl Into<CardId>) -> &mut CardStats {
         let id = id.into();
-        if self.card_stats.contains_key(&id) {
-            self.card_stats.get_mut(&id)
-        } else {
-            let stats = Default::default();
-            self.card_stats.insert(id.clone(), stats);
-            self.card_stats.get_mut(&id)
+        //SAFETY: This is safe because either it exists or we add it here
+        unsafe {
+            if self.card_stats.contains_key(&id) {
+                self.card_stats.get_mut(&id)
+            } else {
+                let stats = Default::default();
+                self.card_stats.insert(id.clone(), stats);
+                self.card_stats.get_mut(&id)
+            }
+            .unwrap_unchecked()
         }
-        .expect("Unable to find stats for card")
     }
 }
 
