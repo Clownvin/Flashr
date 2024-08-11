@@ -147,12 +147,6 @@ impl Stats {
     }
 }
 
-impl Default for Stats {
-    fn default() -> Self {
-        Self::new(get_home_config_file().expect("Unable to find stats in home config"))
-    }
-}
-
 fn get_home_config_file() -> Result<PathBuf, StatsError> {
     let path = dirs::home_dir();
     if let Some(mut path) = path {
