@@ -33,7 +33,8 @@ use ratatui::{
 use crate::{FlashrError, UiError};
 
 pub struct TerminalWrapper {
-    _mouse_capture: MouseCapture,
+    #[allow(unused)]
+    mouse_capture: MouseCapture,
     terminal: Terminal<CrosstermBackend<std::io::Stdout>>,
 }
 
@@ -45,7 +46,7 @@ impl TerminalWrapper {
         let terminal = Terminal::new(CrosstermBackend::new(std::io::stdout()))?;
 
         Ok(TerminalWrapper {
-            _mouse_capture: mouse_capture,
+            mouse_capture,
             terminal,
         })
     }
