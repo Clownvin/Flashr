@@ -77,18 +77,24 @@ impl<T> RandomIndex for WeightedList<T> {
         match self.len() {
             0 => None,
             1 => Some(0),
-            _ => {
-                let needle = rng.gen_range(0.0..self.total_weight);
-                let mut running_total = 0.0;
+            len => {
+                //NOTE: If total_weight is 0.0, we can't "find the needle",
+                //so instead we just return a random index
+                if self.total_weight == 0.0 {
+                    Some(rng.gen_range(0..len))
+                } else {
+                    let needle = rng.gen_range(0.0..self.total_weight);
+                    let mut running_total = 0.0;
 
-                for (i, (_, weight)) in self.items.iter().enumerate() {
-                    running_total += *weight;
-                    if needle < running_total {
-                        return Some(i);
+                    for (i, (_, weight)) in self.items.iter().enumerate() {
+                        running_total += *weight;
+                        if needle < running_total {
+                            return Some(i);
+                        }
                     }
-                }
 
-                panic!("Reached end without finding match");
+                    panic!("Reached end without finding match");
+                }
             }
         }
     }
@@ -123,7 +129,7 @@ mod tests {
 
     use rand::{rngs::ThreadRng, Rng};
 
-    use crate::random::IntoIterShuffled;
+    use crate::random::{GetRandom, IntoIterShuffled};
 
     use super::{ItemAndWeight, WeightedList};
 
@@ -214,6 +220,31 @@ mod tests {
             *min as f64 / TOTAL as f64 > 0.45,
             "{min} is not around 50% of {TOTAL}"
         );
+    }
+
+    #[test]
+    fn test_zero_weights() {
+        let rng = &mut rand::thread_rng();
+        let mut list = WeightedList::default();
+        list.add((1, 0.0));
+        assert!(list.len() == 1);
+        assert!(list.get_random(rng).is_some());
+        list.add((2, 0.0));
+        assert!(list.len() == 2);
+        assert!(list.get_random(rng).is_some());
+        list.add((3, 1.0));
+        assert!(list.len() == 3);
+        for _ in 0..10 {
+            //NOTE: Weighted items will take priority over zero-weights
+            assert!(list.get_random(rng).is_some_and(|(i, _)| 3.eq(i)));
+        }
+        for _ in 0..10 {
+            let mut iter = list.clone().into_iter_shuffled(rng);
+            assert!(iter.next().is_some_and(|((i, _), _)| 3 == i));
+            assert!(iter.next().is_some());
+            assert!(iter.next().is_some());
+            assert!(iter.next().is_none());
+        }
     }
 
     #[derive(Clone, PartialEq, Eq)]
