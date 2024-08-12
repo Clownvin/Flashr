@@ -30,8 +30,6 @@ pub(crate) struct WeightedList<T> {
 }
 
 ///WeightedList which can only be accessed randomly.
-///Interally the list is sorted by weight so that
-///the number of average iterations during a search in minimized.
 impl<T> WeightedList<T> {
     pub fn add(&mut self, item: impl Into<ItemAndWeight<T>>) {
         let item = item.into();
