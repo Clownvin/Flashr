@@ -91,7 +91,7 @@ where
     }
 }
 
-impl<'a, T> Deref for WrappingIndex<'a, T> {
+impl<T> Deref for WrappingIndex<'_, T> {
     type Target = usize;
 
     fn deref(&self) -> &Self::Target {

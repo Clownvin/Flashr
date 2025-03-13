@@ -17,114 +17,121 @@
  * along with Flashr.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use rand::{rngs::ThreadRng, Rng};
-
-use crate::random::{GetRandom, RandomIndex, RemoveRandom};
-
 pub(crate) type ItemAndWeight<T> = (T, f64);
 
-#[derive(Clone)]
-pub(crate) struct WeightedList<T> {
-    items: Vec<ItemAndWeight<T>>,
-    total_weight: f64,
-}
+macro_rules! weighted_list {
+    ($name:ident) => {
+        use crate::random::{GetRandom, RandomIndex, RemoveRandom};
+        use rand::{rngs::ThreadRng, Rng};
 
-///WeightedList which can only be accessed randomly.
-impl<T> WeightedList<T> {
-    pub fn add(&mut self, item: impl Into<ItemAndWeight<T>>) {
-        let item = item.into();
-        let weight = item.1;
-
-        assert!(
-            weight >= 0.0,
-            "item weight must be greater than or equal to zero, given: {weight}"
-        );
-
-        self.items.push(item);
-        self.total_weight += weight;
-    }
-
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            items: Vec::with_capacity(capacity),
-            total_weight: 0.0,
+        #[derive(Clone)]
+        pub(crate) struct $name<T> {
+            items: Vec<ItemAndWeight<T>>,
+            total_weight: f64,
         }
-    }
 
-    pub fn change_weight(&mut self, index: usize, weight: f64) {
-        assert!(
-            weight >= 0.0,
-            "item weight must be greater than or equal to zero, given: {weight}"
-        );
+        ///WeightedList which can only be accessed randomly.
+        impl<T> $name<T> {
+            pub fn add(&mut self, item: impl Into<ItemAndWeight<T>>) {
+                let item = item.into();
+                let weight = item.1;
 
-        let item = &mut self.items[index];
-        let old_weight = item.1;
-        self.total_weight = (self.total_weight - old_weight) + weight;
-        item.1 = weight;
-    }
+                assert!(
+                    weight >= 0.0,
+                    "item weight must be greater than or equal to zero, given: {weight}"
+                );
 
-    fn len(&self) -> usize {
-        self.items.len()
-    }
+                self.items.push(item);
+                self.total_weight += weight;
+            }
 
-    pub fn weights(&self) -> Vec<f64> {
-        self.items.iter().map(|(_, weight)| *weight).collect()
-    }
-}
+            pub fn with_capacity(capacity: usize) -> Self {
+                Self {
+                    items: Vec::with_capacity(capacity),
+                    total_weight: 0.0,
+                }
+            }
 
-impl<T> RandomIndex for WeightedList<T> {
-    fn random_index(&self, rng: &mut ThreadRng) -> Option<usize> {
-        match self.len() {
-            0 => None,
-            1 => Some(0),
-            len => {
-                //NOTE: If total_weight is 0.0, we can't "find the needle",
-                //so instead we just return a random index
-                if self.total_weight == 0.0 {
-                    Some(rng.gen_range(0..len))
-                } else {
-                    let needle = rng.gen_range(0.0..self.total_weight);
-                    let mut running_total = 0.0;
+            pub fn change_weight(&mut self, index: usize, weight: f64) {
+                assert!(
+                    weight >= 0.0,
+                    "item weight must be greater than or equal to zero, given: {weight}"
+                );
 
-                    for (i, (_, weight)) in self.items.iter().enumerate() {
-                        running_total += *weight;
-                        if needle < running_total {
-                            return Some(i);
+                let item = &mut self.items[index];
+                let old_weight = item.1;
+                self.total_weight = (self.total_weight - old_weight) + weight;
+                item.1 = weight;
+            }
+
+            fn len(&self) -> usize {
+                self.items.len()
+            }
+
+            #[allow(dead_code)]
+            pub fn weights(&self) -> Vec<f64> {
+                self.items.iter().map(|(_, weight)| *weight).collect()
+            }
+        }
+
+        impl<T> RandomIndex for $name<T> {
+            fn random_index(&self, rng: &mut ThreadRng) -> Option<usize> {
+                match self.len() {
+                    0 => None,
+                    1 => Some(0),
+                    len => {
+                        //NOTE: If total_weight is 0.0, we can't "find the needle",
+                        //so instead we just return a random index
+                        if self.total_weight == 0.0 {
+                            Some(rng.gen_range(0..len))
+                        } else {
+                            let needle = rng.gen_range(0.0..self.total_weight);
+                            let mut running_total = 0.0;
+
+                            for (i, (_, weight)) in self.items.iter().enumerate() {
+                                running_total += *weight;
+                                if needle < running_total {
+                                    return Some(i);
+                                }
+                            }
+
+                            panic!("Reached end without finding match");
                         }
                     }
-
-                    panic!("Reached end without finding match");
                 }
             }
         }
-    }
+
+        impl<'a, T> GetRandom for &'a $name<T> {
+            type Item = (&'a T, usize);
+
+            fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item> {
+                self.random_index(rng).map(|index| {
+                    let (item, _) = &self.items[index];
+                    (item, index)
+                })
+            }
+        }
+
+        impl<T> RemoveRandom for $name<T> {
+            type Item = (ItemAndWeight<T>, usize);
+
+            fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item> {
+                self.random_index(rng).map(|index| {
+                    let item = self.items.swap_remove(index);
+                    self.total_weight -= item.1;
+                    (item, index)
+                })
+            }
+        }
+    };
 }
 
-impl<'a, T> GetRandom for &'a WeightedList<T> {
-    type Item = (&'a T, usize);
-
-    fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item> {
-        self.random_index(rng).map(|index| {
-            let (item, _) = &self.items[index];
-            (item, index)
-        })
-    }
-}
-
-impl<T> RemoveRandom for WeightedList<T> {
-    type Item = (ItemAndWeight<T>, usize);
-
-    fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item> {
-        self.random_index(rng).map(|index| {
-            let item = self.items.swap_remove(index);
-            self.total_weight -= item.1;
-            (item, index)
-        })
-    }
-}
+weighted_list!(WeightedList);
 
 #[cfg(test)]
 mod tests {
+    // TODO: Clean up these tests
     use std::time::Instant;
 
     use rand::{rngs::ThreadRng, Rng};
@@ -156,6 +163,75 @@ mod tests {
             }
 
             list
+        }
+    }
+
+    struct WeightedListIterator<'a, T> {
+        list: &'a WeightedList<T>,
+        seen: Vec<usize>,
+        remaining_weight: f64,
+        rng: &'a mut ThreadRng,
+    }
+
+    impl<'a, T> WeightedListIterator<'a, T> {
+        fn new(list: &'a WeightedList<T>, rng: &'a mut ThreadRng) -> Self {
+            Self {
+                list,
+                seen: Vec::with_capacity(10),
+                remaining_weight: list.total_weight,
+                rng,
+            }
+        }
+    }
+
+    impl<'a, T> Iterator for WeightedListIterator<'a, T>
+    where
+        T: PartialEq,
+    {
+        type Item = (&'a T, usize);
+
+        fn next(&mut self) -> Option<Self::Item> {
+            match self.list.len() - self.seen.len() {
+                0 => None,
+                1 => {
+                    let (item, i) = self
+                        .list
+                        .items
+                        .iter()
+                        .enumerate()
+                        .find(|(i, _)| !self.seen.contains(i))
+                        .map(|(i, (ref item, _))| (item, i))
+                        .expect("Unable to find not-yet-seen index");
+
+                    self.seen.push(i);
+                    Some((item, i))
+                }
+                _ => {
+                    let needle = self.rng.gen_range(0.0..self.remaining_weight);
+                    let mut running_total = 0.0;
+
+                    for (i, (item, weight)) in self.list.items.iter().enumerate() {
+                        if self.seen.contains(&i) {
+                            continue;
+                        }
+
+                        running_total += weight;
+                        if needle < running_total {
+                            self.remaining_weight -= weight;
+                            self.seen.push(i);
+                            return Some((item, i));
+                        }
+                    }
+
+                    panic!("Reached end without finding match");
+                }
+            }
+        }
+    }
+
+    impl<T> WeightedList<T> {
+        fn iter<'a>(&'a self, rng: &'a mut ThreadRng) -> WeightedListIterator<'a, T> {
+            WeightedListIterator::new(self, rng)
         }
     }
 
@@ -253,7 +329,9 @@ mod tests {
 
     #[test]
     fn bench_weighted_list_change_weight() {
-        impl<T> WeightedList<T> {
+        weighted_list!(BenchList);
+
+        impl<T> BenchList<T> {
             fn get_mut(&mut self, rng: &mut ThreadRng) -> Option<(&mut T, usize)> {
                 match self.len() {
                     0 => None,
@@ -303,9 +381,26 @@ mod tests {
             }
         }
 
+        impl<T> FromIterator<ItemAndWeight<T>> for BenchList<T> {
+            fn from_iter<I: IntoIterator<Item = (T, f64)>>(iter: I) -> Self {
+                let iter = iter.into_iter();
+
+                let mut list = {
+                    let (lower_bound, _) = iter.size_hint();
+                    Self::with_capacity(lower_bound)
+                };
+
+                for item_weight in iter {
+                    list.add(item_weight);
+                }
+
+                list
+            }
+        }
+
         let list = (0..200)
             .map(|_| (W(20), 1.0 / (20 + 1) as f64))
-            .collect::<WeightedList<_>>();
+            .collect::<BenchList<_>>();
         let rng = &mut rand::thread_rng();
 
         let time_current = {
@@ -354,75 +449,6 @@ mod tests {
 
     #[test]
     fn bench_weighted_list_iterator() {
-        struct WeightedListIterator<'a, T> {
-            list: &'a WeightedList<T>,
-            seen: Vec<usize>,
-            remaining_weight: f64,
-            rng: &'a mut ThreadRng,
-        }
-
-        impl<'a, T> WeightedListIterator<'a, T> {
-            fn new(list: &'a WeightedList<T>, rng: &'a mut ThreadRng) -> Self {
-                Self {
-                    list,
-                    seen: Vec::with_capacity(10),
-                    remaining_weight: list.total_weight,
-                    rng,
-                }
-            }
-        }
-
-        impl<'a, T> Iterator for WeightedListIterator<'a, T>
-        where
-            T: PartialEq,
-        {
-            type Item = (&'a T, usize);
-
-            fn next(&mut self) -> Option<Self::Item> {
-                match self.list.len() - self.seen.len() {
-                    0 => None,
-                    1 => {
-                        let (item, i) = self
-                            .list
-                            .items
-                            .iter()
-                            .enumerate()
-                            .find(|(i, _)| !self.seen.contains(i))
-                            .map(|(i, (ref item, _))| (item, i))
-                            .expect("Unable to find not-yet-seen index");
-
-                        self.seen.push(i);
-                        Some((item, i))
-                    }
-                    _ => {
-                        let needle = self.rng.gen_range(0.0..self.remaining_weight);
-                        let mut running_total = 0.0;
-
-                        for (i, (item, weight)) in self.list.items.iter().enumerate() {
-                            if self.seen.contains(&i) {
-                                continue;
-                            }
-
-                            running_total += weight;
-                            if needle < running_total {
-                                self.remaining_weight -= weight;
-                                self.seen.push(i);
-                                return Some((item, i));
-                            }
-                        }
-
-                        panic!("Reached end without finding match");
-                    }
-                }
-            }
-        }
-
-        impl<T> WeightedList<T> {
-            fn iter<'a>(&'a self, rng: &'a mut ThreadRng) -> WeightedListIterator<'a, T> {
-                WeightedListIterator::new(self, rng)
-            }
-        }
-
         let list = (0..2000)
             .map(|i: usize| ((i, i, i, i), 1.0 / 20.0))
             .collect::<WeightedList<_>>();

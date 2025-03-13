@@ -44,7 +44,7 @@ impl<'a> FlashcardWidget<'a> {
     }
 }
 
-impl<'a> StatefulWidget for FlashcardWidget<'a> {
+impl StatefulWidget for FlashcardWidget<'_> {
     type State = FlashcardWidgetState;
 
     fn render(
