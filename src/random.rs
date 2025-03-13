@@ -25,6 +25,7 @@ pub trait RandomIndex {
 
 pub trait RemoveRandom {
     type Item;
+
     fn remove_random(&mut self, rng: &mut ThreadRng) -> Option<Self::Item>;
 }
 
@@ -32,10 +33,10 @@ pub trait IntoIterShuffled<'rng, C>
 where
     C: RemoveRandom,
 {
-    fn into_iter_shuffled(self, rng: &'rng mut ThreadRng) -> IntoShuffleIter<'rng, C>;
+    fn into_iter_shuffled(self, rng: &'rng mut ThreadRng) -> ShuffleIter<'rng, C>;
 }
 
-pub struct IntoShuffleIter<'rng, C>
+pub struct ShuffleIter<'rng, C>
 where
     C: RemoveRandom,
 {
@@ -43,7 +44,7 @@ where
     rng: &'rng mut ThreadRng,
 }
 
-impl<C> Iterator for IntoShuffleIter<'_, C>
+impl<C> Iterator for ShuffleIter<'_, C>
 where
     C: RemoveRandom,
 {
@@ -58,8 +59,8 @@ impl<'rng, C> IntoIterShuffled<'rng, C> for C
 where
     C: RemoveRandom,
 {
-    fn into_iter_shuffled(self, rng: &'rng mut ThreadRng) -> IntoShuffleIter<'rng, C> {
-        IntoShuffleIter { values: self, rng }
+    fn into_iter_shuffled(self, rng: &'rng mut ThreadRng) -> ShuffleIter<'rng, C> {
+        ShuffleIter { values: self, rng }
     }
 }
 
@@ -89,6 +90,7 @@ impl<T> RemoveRandom for Vec<T> {
 
 impl<'a, T> GetRandom for &'a Vec<T> {
     type Item = &'a T;
+
     fn get_random(self, rng: &mut ThreadRng) -> Option<Self::Item> {
         self.random_index(rng).and_then(|index| self.get(index))
     }

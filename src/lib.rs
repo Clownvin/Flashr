@@ -267,6 +267,40 @@ impl Progress {
     }
 }
 
+impl Display for Progress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (_, percent) = self.ratio_percent();
+        let Progress { correct, total } = *self;
+
+        f.write_fmt(format_args!(
+            "You got {correct} correct out of {total} ({percent:.2}%)"
+        ))?;
+
+        if total >= 10 {
+            let msg = if percent == 100.0 {
+                if total >= 1000 {
+                    "🌌🌟🚀 Out of this world! 🚀🌟🌌"
+                } else if total >= 100 {
+                    "🚀🌌 Spectacular! 🌌🚀"
+                } else {
+                    "🌟 Perfect! 🌟"
+                }
+            } else if percent >= 90.0 {
+                "🥇 Excellent! 🥇"
+            } else if percent >= 80.0 {
+                "🥈 Well done! 🥈"
+            } else if percent >= 70.0 {
+                "🥉 Nice! 🥉"
+            } else {
+                "Keep up the practice!"
+            };
+            f.write_fmt(format_args!("\n{msg}"))?;
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub enum FlashrError {
     Deck(Box<DeckError>),
