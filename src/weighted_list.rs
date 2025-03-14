@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Clownvin <123clownvin@gmail.com>
+ * Copyright (C) 2025 Clownvin <123clownvin@gmail.com>
  *
  * This file is part of Flashr.
  *
