@@ -24,7 +24,10 @@ use crossterm::event::{
 };
 use widget::{FlashcardWidget, FlashcardWidgetState};
 
-use crate::{event::clear_and_match_event, terminal::TerminalWrapper, DeckCard, FlashrError};
+use crate::{
+    event::clear_and_match_event, terminal::TerminalWrapper, DeckCard, FlashrError, ModeArguments,
+    UiError,
+};
 
 mod widget;
 
@@ -97,6 +100,22 @@ impl<T> Deref for WrappingIndex<'_, T> {
     fn deref(&self) -> &Self::Target {
         &self.index
     }
+}
+
+pub fn flashcards(args: ModeArguments) -> Result<(), FlashrError> {
+    let deck_cards = {
+        let mut buf = Vec::with_capacity(args.decks.iter().map(|deck| deck.cards.len()).sum());
+        args.decks.iter().for_each(|deck| {
+            deck.cards
+                .iter()
+                .for_each(|card| buf.push(DeckCard::new(deck, card)))
+        });
+        buf
+    };
+
+    let term = &mut TerminalWrapper::new().map_err(UiError::IoError)?;
+
+    show_flashcards(term, deck_cards)
 }
 
 pub fn show_flashcards(

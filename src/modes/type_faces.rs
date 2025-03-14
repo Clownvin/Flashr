@@ -32,7 +32,7 @@ pub fn type_faces(mut term: TerminalWrapper, args: ModeArguments) -> Result<Prog
     let term = &mut term;
     let rng = &mut rand::thread_rng();
     let stats = &mut Stats::load_from_user_home()?;
-    let mut problems = TypeProblemIterator::new(args.deck_cards, stats, args.faces, rng);
+    // let mut problems = TypeProblemIterator::new(args.deck_cards, stats, args.faces, rng);
 
     let mut total_correct = 0;
 

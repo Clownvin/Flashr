@@ -24,7 +24,7 @@ use widget::{MatchProblemWidget, MatchProblemWidgetState};
 
 use crate::{
     event::clear_and_match_event, stats::Stats, terminal::TerminalWrapper, FlashrError,
-    ModeArguments, Progress, PromptCard,
+    ModeArguments, Progress, PromptCard, UiError,
 };
 
 use super::flashcards::show_flashcards;
@@ -51,14 +51,18 @@ enum MatchResult<'a, 'b> {
     },
 }
 
-pub fn match_faces(
-    term: &mut TerminalWrapper,
-    args: ModeArguments,
-) -> Result<Progress, FlashrError> {
+pub fn match_faces(args: ModeArguments) -> Result<Progress, FlashrError> {
     let rng = &mut rand::thread_rng();
     let mut stats = Stats::load_from_user_home()?;
-    let mut problems =
-        MatchProblemIterator::new(args.deck_cards, &mut stats, args.faces, args.line, rng);
+
+    let mut problems = MatchProblemIterator::new(
+        &args.decks,
+        &mut stats,
+        args.question_faces,
+        args.answer_faces,
+        args.line,
+        rng,
+    )?;
 
     fn update_correct(card: &PromptCard, stats: &mut Stats, problems: &mut MatchProblemIterator) {
         let stats = stats.for_card_mut(card);
@@ -74,6 +78,8 @@ pub fn match_faces(
 
     let mut progress = Progress::default();
     let range = args.problem_count.map_or(0..usize::MAX, |count| 0..count);
+
+    let term = &mut TerminalWrapper::new().map_err(UiError::IoError)?;
 
     for _ in range {
         if let Some(problem) = problems.next() {

@@ -27,13 +27,21 @@ pub struct FlashrCli {
     #[arg(short = 'c', long = "count", value_name = "PROBLEM_COUNT", help = "Number of problems to show.", long_help = COUNT_HELP)]
     pub problem_count: Option<usize>,
     #[arg(
-        short = 'f',
-        long = "faces",
-        value_name = "[...FACE_N]",
-        help = "Faces to show problems for.",
-        long_help = FACES_HELP
+        short = 'q',
+        long = "questions",
+        num_args = 1..,
+        help = "Faces to appear as possible questions.",
+        long_help = QUESTION_FACES_HELP
     )]
-    pub faces: Option<Vec<String>>,
+    pub question_faces: Option<Vec<String>>,
+    #[arg(
+        short = 'a',
+        long = "answers",
+        num_args = 1..,
+        help = "Faces to appear as possible answers.",
+        long_help = ANSWER_FACES_HELP
+    )]
+    pub answer_faces: Option<Vec<String>>,
     #[arg(long = "line", help = "Toggle the weight line", long_help = LINE_HELP, default_value_t = false)]
     pub line: bool,
     #[arg(short = 'm', long = "mode", default_value_t = Mode::Match, value_name = "MODE", help = "Program mode", long_help = MODE_HELP)]
@@ -43,13 +51,15 @@ pub struct FlashrCli {
 }
 
 const COUNT_HELP: &str = r#"Number of problems to show. If omitted, will continue indefinitely."#;
-const FACES_HELP: &str = r#"Faces to show problems for.
-Example Usage: flashr -f Front -f Back ./decks"#;
+const QUESTION_FACES_HELP: &str = r#"Faces to use as questions.
+Example Usage: flashr -q Front -q Back ./decks"#;
+const ANSWER_FACES_HELP: &str = r#"Faces to use as answers.
+Example Usage: flashr -a Front -a Back ./decks"#;
 const LINE_HELP: &str = r#"Toggle the weight line. This will render a bar chart at the top which represents the weights of the backing weighted list."#;
 const MODE_HELP: &str = r#"Program mode. Possible values:
     match   - Multiple choice matching problems
-    flash   - Typical flashcards
-    type    - Shown a face, and asked to type the answer"#;
+    flash   - Typical flashcards"#;
+// type    - Shown a face, and asked to type the answer"#;
 const PATHS_HELP: &str = r#"Paths to load decks from. Can be individual files or directories."#;
 
 #[cfg(test)]

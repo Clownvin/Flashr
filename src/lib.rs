@@ -18,16 +18,12 @@
  */
 
 use clap::Parser;
+use cli::FlashrCli;
 use stats::StatsError;
-use std::{
-    fmt::Display,
-    ops::{Deref, Not},
-    str::FromStr,
-};
+use std::{fmt::Display, ops::Deref, str::FromStr};
 
 use deck::{load_decks, Card, CardId, Deck, DeckError, Face};
-use modes::{flashcards::show_flashcards, match_faces::match_faces};
-use terminal::TerminalWrapper;
+use modes::{flashcards::flashcards, match_faces::match_faces};
 
 mod cli;
 mod color;
@@ -42,17 +38,16 @@ mod weighted_list;
 
 pub fn run() -> Result<Option<Progress>, FlashrError> {
     let cli = cli::FlashrCli::parse();
-    let decks = load_decks(cli.paths)?;
-    let args = ModeArguments::new(&decks, cli.problem_count, cli.faces, cli.line);
+    let decks = load_decks(&cli.paths)?;
+    let mode = cli.mode;
+    let args = ModeArguments::new(cli, decks);
 
+    //NOTE: From this point, stdout/stderr will not be usable, hence we
+    //need to catch any panics, since they are not loggable.
     std::panic::catch_unwind(|| {
-        //NOTE: From this point, stdout/stderr will not be usable, hence we
-        //need to catch any panics, since they are not loggable.
-        let term = &mut TerminalWrapper::new().map_err(UiError::IoError)?;
-
-        let correct_incorrect = match cli.mode {
-            Mode::Match => match_faces(term, args).map(Some),
-            Mode::Flash => show_flashcards(term, args.deck_cards).map(|_| None),
+        let correct_incorrect = match mode {
+            Mode::Match => match_faces(args).map(Some),
+            Mode::Flash => flashcards(args).map(|_| None),
             Mode::Type => todo!("Type mode not yet implemented"),
         }?;
 
@@ -116,7 +111,7 @@ impl<'a> From<&PromptCard<'a>> for CardId {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 enum Mode {
     Match,
     Type,
@@ -151,54 +146,22 @@ impl Display for Mode {
     }
 }
 
-struct ModeArguments<'a> {
+struct ModeArguments {
     problem_count: ProblemCount,
-    faces: Faces,
-    deck_cards: Vec<DeckCard<'a>>,
+    question_faces: Faces,
+    answer_faces: Faces,
+    decks: Vec<Deck>,
     line: bool,
 }
 
-impl<'a> ModeArguments<'a> {
-    fn new(decks: &'a [Deck], problem_count: ProblemCount, faces: Faces, line: bool) -> Self {
-        let mut deck_cards = {
-            let max_num_problems = decks.iter().fold(0, |total, deck| {
-                total + (deck.cards.len() * deck.faces.len())
-            });
-            Vec::with_capacity(max_num_problems)
-        };
-
-        if let Some(faces) = faces.as_ref() {
-            for deck in decks {
-                let deck_faces = {
-                    let mut buf = Vec::with_capacity(deck.faces.len());
-                    deck.faces
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, deck_face)| faces.iter().any(|face| face == *deck_face))
-                        .for_each(|(i, _)| buf.push(i));
-                    buf
-                };
-
-                deck_faces.is_empty().not().then(|| {
-                    for card in deck.cards.iter() {
-                        if deck_faces.iter().any(|i| card[*i].is_some()) {
-                            deck_cards.push(DeckCard::new(deck, card));
-                        }
-                    }
-                });
-            }
-        } else {
-            for deck in decks {
-                for card in deck.cards.iter() {
-                    deck_cards.push(DeckCard::new(deck, card));
-                }
-            }
-        }
+impl ModeArguments {
+    fn new(cli: FlashrCli, decks: Vec<Deck>) -> Self {
         Self {
-            problem_count,
-            faces,
-            deck_cards,
-            line,
+            problem_count: cli.problem_count,
+            question_faces: cli.question_faces,
+            answer_faces: cli.answer_faces,
+            decks,
+            line: cli.line,
         }
     }
 }
