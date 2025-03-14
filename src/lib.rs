@@ -156,10 +156,24 @@ struct ModeArguments {
 
 impl ModeArguments {
     fn new(cli: FlashrCli, decks: Vec<Deck>) -> Self {
+        let mut question_faces = cli.question_faces;
+        let mut answer_faces = cli.answer_faces;
+
+        if let Some(faces) = cli.faces {
+            let mut q = question_faces.unwrap_or_default();
+            let mut a = answer_faces.unwrap_or_default();
+            faces.into_iter().for_each(|face| {
+                q.push(face.clone());
+                a.push(face);
+            });
+            question_faces = Some(q);
+            answer_faces = Some(a);
+        }
+
         Self {
             problem_count: cli.problem_count,
-            question_faces: cli.question_faces,
-            answer_faces: cli.answer_faces,
+            question_faces,
+            answer_faces,
             decks,
             line: cli.line,
         }
