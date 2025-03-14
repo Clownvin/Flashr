@@ -1,12 +1,16 @@
 # Flashr
-Extremely simple and lightweight [TUI (Text/terminal-based user interface)](https://en.wikipedia.org/wiki/Text-based_user_interface) based flashcard application, written in [Rust](https://www.rust-lang.org/) and using [Ratatui](https://ratatui.rs/) for rendering. Decks are stored as JSONs, and many can be loaded at once. Currently only supports one mode, "match", which shows a "question" face and prompts for the user for a multiple choice answer.
+Extremely simple and lightweight [TUI (Text/terminal-based user interface)](https://en.wikipedia.org/wiki/Text-based_user_interface) based flashcard application, written in [Rust](https://www.rust-lang.org/) and using [Ratatui](https://ratatui.rs/) for rendering. Decks are stored as [JSONs](https://en.wikipedia.org/wiki/JSON), and many can be loaded at once. I have found it rather nice to create a "deck tree" file structure, with decks arranged based on the type of content. That way it's very trivial to target the entire tree to go over everything, but also makes it easy to specify specific decks for more directed study.
+
+Currently supports two modes, "match", which shows a "question" face and prompts for the user for a multiple choice answer, and "flash", which provides the typical flashcard experience.
 
 ## Installation
 Simply clone the repository, and then run:
 ```sh
 cargo build --release
 ```
-This will create an executable in ./target/release/, which you can then link/copy/use as needed.
+This will create an executable in `./target/release/`, which you can then link/copy/use as needed.
+
+You can also download one of the pre-built Linux releases.
 
 ## Usage
 Example deck (`example.json`):
@@ -35,4 +39,4 @@ To run the program using the `example.json` deck:
 flashr example.json
 ```
 
-Note that you can provide any number of paths to files/directories with decks. See `flashr -h` for more usage information.
+Note that you can provide any number of paths to files/directories with decks. See `flashr -h` or `flashr --help` for more usage information.
