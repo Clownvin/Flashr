@@ -1,7 +1,9 @@
 # Flashr
 Extremely simple and lightweight [TUI (Text/terminal-based user interface)](https://en.wikipedia.org/wiki/Text-based_user_interface) based flashcard application, written in [Rust](https://www.rust-lang.org/) and using [Ratatui](https://ratatui.rs/) for rendering. Decks are stored as [JSONs](https://en.wikipedia.org/wiki/JSON), and many can be loaded at once. I have found it rather nice to create a "deck tree" file structure, with decks arranged based on the type of content. That way it's very trivial to target the entire tree to go over everything, but also makes it easy to specify specific decks for more directed study.
 
-Currently supports two modes, "match", which shows a "question" face and prompts for the user for a multiple choice answer, and "flash", which provides the typical flashcard experience.
+Currently supports two modes:
+- "match" - Shows a "question" face and prompts for the user for a multiple choice answer
+- "flash" - Provides the typical flashcard experience
 
 ## Installation
 Simply clone the repository, and then run:
