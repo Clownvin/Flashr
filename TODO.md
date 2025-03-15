@@ -1,8 +1,7 @@
 # TODOs
+- [ ] Hide the sidebars in single-card flash mode (they just show/are the same as the current card, since there's only one)
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
-    - MVP mode should be called "match"
 - [ ] Additional mode: "mixed" - Random mix of all (non-flash) modes. Probably needs to implement a "count" argument for num times to test, as well as changing how problem generation works.
-- [ ] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
 - [ ] A way to mark cards as needing extra practice. Something like a DF style bar on bottom, perhaps [a] key to go into add mode, and select answer to add. Perhaps works by creating incrementing a "needs_practice" counter, which could then be used in the problem selection logic for prioritization
 - [ ] Light mode/dark mode/contrast
 - [ ] Track stats for card faces as well (and show missed faces more often)
@@ -10,7 +9,6 @@
 - [ ] Scroll boxes for dialogue which exceeds sizes
 - [ ] Prevent the same problem card twice in a row (maybe not worth?)
 - [ ] Repeat missed problems at end (Not sure anymore)
-- [ ] Center text vertically (Not sure is possible/worth atm)
 - [x] Do not show answers which are same (eg same kana for a kanji)
 - [x] Add validation error ensuring all "faces" are unique per deck
 - [x] Better error handling (match errors and print message rather than panicing on unwrap)
@@ -34,3 +32,5 @@
     - [x] Better logic for picking problem answers too? Something similar to how the question is picked? Ideally showing unknowns more commonly as answers too
 - [x] Fix - Don't show answers with same question face as problem (eg 海 and 皆, both have on-yomi of カイ)
 - [x] UX - match mode - Fix the middle box "column" in the answer section so that it always matches the answer selected
+- [x] Additional mode: "flash" - Very basic flashcard mode with spacebar flipping between faces, and right/left with a progress bar.
+- [x] Center text vertically (Not sure is possible/worth atm)

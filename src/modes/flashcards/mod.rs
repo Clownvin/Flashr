@@ -203,13 +203,13 @@ fn match_user_input(event: Event, state: &FlashcardWidgetState) -> Option<UserIn
             code,
             ..
         }) => match code {
-            KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('w') => Some(UserInput::PrevCard),
+            KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('w') => Some(UserInput::PrevFace),
             KeyCode::Down | KeyCode::Enter | KeyCode::Char('j') | KeyCode::Char('s') => {
-                Some(UserInput::NextCard)
-            }
-            KeyCode::Left | KeyCode::Char('h') | KeyCode::Char('a') => Some(UserInput::PrevFace),
-            KeyCode::Right | KeyCode::Char(' ') | KeyCode::Char('l') | KeyCode::Char('d') => {
                 Some(UserInput::NextFace)
+            }
+            KeyCode::Left | KeyCode::Char('h') | KeyCode::Char('a') => Some(UserInput::PrevCard),
+            KeyCode::Right | KeyCode::Char(' ') | KeyCode::Char('l') | KeyCode::Char('d') => {
+                Some(UserInput::NextCard)
             }
             KeyCode::Esc | KeyCode::Char('q') => Some(UserInput::Quit),
             KeyCode::Char(char) => char.to_digit(10).map(|index| {
@@ -230,9 +230,11 @@ fn match_user_input(event: Event, state: &FlashcardWidgetState) -> Option<UserIn
             row,
             ..
         }) => Some({
-            if state.left.contains((column, row).into()) {
+            let pos = (column, row).into();
+
+            if state.left.contains(pos) {
                 UserInput::PrevCard
-            } else if state.right.contains((column, row).into()) {
+            } else if state.right.contains(pos) {
                 UserInput::NextCard
             } else {
                 match button {
