@@ -132,18 +132,7 @@ impl Stats {
     }
 
     pub fn for_card_mut(&mut self, id: impl Into<CardId>) -> &mut CardStats {
-        let id = id.into();
-        //SAFETY: This is safe because either it exists or we add it here
-        unsafe {
-            if self.card_stats.contains_key(&id) {
-                self.card_stats.get_mut(&id)
-            } else {
-                let stats = Default::default();
-                self.card_stats.insert(id.clone(), stats);
-                self.card_stats.get_mut(&id)
-            }
-            .unwrap_unchecked()
-        }
+        self.card_stats.entry(id.into()).or_default()
     }
 }
 

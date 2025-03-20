@@ -41,8 +41,6 @@ struct MatchProblem<'a> {
     weights: Option<Vec<f64>>,
 }
 
-struct Quit;
-
 enum MatchResult<'a, 'b> {
     Correct(&'b PromptCard<'a>),
     Incorrect {
@@ -110,6 +108,7 @@ pub fn match_faces(args: ModeArguments) -> Result<Progress, FlashrError> {
     Ok(progress)
 }
 
+struct Quit;
 type MatchProblemResult<'a, 'b> = Result<MatchResult<'a, 'b>, Quit>;
 
 fn show_match_problem<'a, 'b>(
