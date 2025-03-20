@@ -1,4 +1,7 @@
 # TODOs
+- [ ] Tag system?
+    - [ ] Way to tag cards/faces(?) with "tags", which can then be used as additional filtering options
+- [ ] "Mega decks"? Eg, ability to support all my current decks in one singular deck (mostly non-working due to "single front face per deck" limitations)
 - [ ] Hide the sidebars in single-card flash mode (they just show/are the same as the current card, since there's only one)
 - [ ] Additional mode: "type" - Show a face and then ask user to type the response. Cannot (easily) ask for definition without refactoring definitions
 - [ ] Additional mode: "mixed" - Random mix of all (non-flash) modes. Probably needs to implement a "count" argument for num times to test, as well as changing how problem generation works.
